@@ -6,7 +6,7 @@ struct ScanView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if viewModel.isScanning || viewModel.isAnalyzing {
+            if viewModel.isScanning || viewModel.isAnalyzing || viewModel.isProcessing {
                 progressView
             } else if let job = viewModel.currentJob, job.jobStatus == .reviewing {
                 // Analysis complete — prompt review
@@ -73,9 +73,13 @@ struct ScanView: View {
             }
             .frame(maxWidth: 400)
 
-            // Dry run toggle
-            Toggle("Dry run (preview only, no changes)", isOn: $viewModel.isDryRun)
-                .frame(maxWidth: 400)
+            // Options
+            VStack(alignment: .leading, spacing: 8) {
+                Toggle("Skip review (scan & process immediately)", isOn: $viewModel.skipReview)
+                Toggle("Dry run (preview only, no changes)", isOn: $viewModel.isDryRun)
+                    .disabled(viewModel.skipReview)
+            }
+            .frame(maxWidth: 400)
 
             // Error display
             if let error = viewModel.error {
@@ -93,7 +97,7 @@ struct ScanView: View {
                     await viewModel.startScanAndAnalysis()
                 }
             }) {
-                Label("Start Scan", systemImage: "play.fill")
+                Label(viewModel.skipReview ? "Scan & Process" : "Start Scan", systemImage: "play.fill")
                     .frame(minWidth: 120)
             }
             .controlSize(.large)
@@ -134,7 +138,7 @@ struct ScanView: View {
                             .truncationMode(.middle)
                     }
                 }
-            } else if viewModel.isAnalyzing {
+            } else if viewModel.isAnalyzing || viewModel.isProcessing {
                 if let progress = viewModel.analysisProgress {
                     VStack(spacing: 8) {
                         ProgressView(
@@ -143,17 +147,25 @@ struct ScanView: View {
                         )
                         .frame(maxWidth: 300)
 
-                        Text("Analyzing media files...")
+                        Text(viewModel.isProcessing ? "Scanning & processing..." : "Analyzing media files...")
                             .font(.title3)
 
                         Text("\(progress.current) of \(progress.total)")
                             .font(.caption)
                             .foregroundStyle(.secondary)
+
+                        if let fileName = viewModel.processingFileName {
+                            Text(fileName)
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                        }
                     }
                 } else {
                     ProgressView()
                         .controlSize(.large)
-                    Text("Analyzing...")
+                    Text(viewModel.isProcessing ? "Starting..." : "Analyzing...")
                         .font(.title3)
                 }
             }
