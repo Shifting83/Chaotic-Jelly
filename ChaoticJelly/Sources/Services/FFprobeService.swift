@@ -16,18 +16,36 @@ actor FFprobeService {
 
     /// Probe a media file and return parsed MediaInfo.
     /// Retries on transient failures (network shares, locked files).
+    /// For MP4 files on network shares, scales timeout with file size
+    /// since the moov atom may be at the end of the file.
     func probe(fileURL: URL) async throws -> MediaInfo {
         let ffprobePath = try await toolLocator.path(for: .ffprobe)
         let filePath = fileURL.path
         let isNetworkPath = filePath.hasPrefix("/Volumes/") || filePath.hasPrefix("/mnt/")
+        let ext = fileURL.pathExtension.lowercased()
+        let isMp4Like = ["mp4", "m4v", "mov"].contains(ext)
 
         // Verify file is accessible before probing
         guard FileManager.default.isReadableFile(atPath: filePath) else {
             throw FFprobeError.fileNotFound(filePath)
         }
 
+        // Get file size to scale timeout for large files on network shares
+        let fileSize = (try? FileManager.default.attributesOfItem(atPath: filePath)[.size] as? Int64) ?? 0
+        let fileSizeGB = Double(fileSize) / 1_073_741_824
+
         let maxAttempts = isNetworkPath ? 3 : 2
-        let baseTimeout: TimeInterval = isNetworkPath ? 90 : 60
+
+        // Scale base timeout: 60s for local, 90s for network, +30s per GB for MP4 on network
+        let baseTimeout: TimeInterval
+        if isNetworkPath && isMp4Like {
+            baseTimeout = max(120, 60 + fileSizeGB * 30)
+        } else if isNetworkPath {
+            baseTimeout = 90
+        } else {
+            baseTimeout = 60
+        }
+
         var lastError: Error?
 
         for attempt in 1...maxAttempts {
