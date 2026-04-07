@@ -15,9 +15,10 @@ actor FFprobeService {
     }
 
     /// Probe a media file and return parsed MediaInfo.
-    /// Retries on transient failures (network shares, locked files).
-    /// For MP4 files on network shares, scales timeout with file size
-    /// since the moov atom may be at the end of the file.
+    ///
+    /// Strategy for network shares: one fast probe over the network. If it
+    /// fails, immediately cache locally and probe from disk — no slow retries.
+    /// Strategy for local files: fast probe, then one retry with larger settings.
     func probe(fileURL: URL) async throws -> MediaInfo {
         let ffprobePath = try await toolLocator.path(for: .ffprobe)
         let filePath = fileURL.path
@@ -25,78 +26,64 @@ actor FFprobeService {
         let ext = fileURL.pathExtension.lowercased()
         let isMp4Like = ["mp4", "m4v", "mov"].contains(ext)
 
-        // Verify file is accessible before probing
         guard FileManager.default.isReadableFile(atPath: filePath) else {
             throw FFprobeError.fileNotFound(filePath)
         }
 
-        // Get file size to scale timeout for large files on network shares
         let fileSize = (try? FileManager.default.attributesOfItem(atPath: filePath)[.size] as? Int64) ?? 0
-        let fileSizeGB = Double(fileSize) / 1_073_741_824
 
-        let maxAttempts = isNetworkPath ? 3 : 2
-
-        // Scale base timeout: 60s for local, 90s for network, +30s per GB for MP4 on network
-        let baseTimeout: TimeInterval
-        if isNetworkPath && isMp4Like {
-            baseTimeout = max(120, 60 + fileSizeGB * 30)
-        } else if isNetworkPath {
-            baseTimeout = 90
-        } else {
-            baseTimeout = 60
-        }
-
-        var lastError: Error?
-
-        for attempt in 1...maxAttempts {
-            // Use progressively larger probe settings on retry
-            let analyzeDuration = attempt == 1 ? "2000000" : "10000000"
-            let probeSize = attempt == 1 ? "2000000" : "10000000"
-
-            let arguments = [
-                "-v", "quiet",
-                "-print_format", "json",
-                "-show_format",
-                "-show_streams",
-                "-analyzeduration", analyzeDuration,
-                "-probesize", probeSize,
-                filePath
-            ]
-
-            do {
-                let result = try await processRunner.runOrThrow(
-                    executablePath: ffprobePath,
-                    arguments: arguments,
-                    timeout: baseTimeout * Double(attempt)
+        // Attempt 1: fast probe directly on the file
+        do {
+            return try await runProbe(
+                ffprobePath: ffprobePath, filePath: filePath,
+                analyzeDuration: "2000000", probeSize: "2000000",
+                timeout: isNetworkPath ? 30 : 60,
+                fileName: fileURL.lastPathComponent
+            )
+        } catch {
+            if !isNetworkPath {
+                // Local file: retry once with larger settings
+                await logger.logWarning("Fast probe failed for \(fileURL.lastPathComponent), retrying...")
+                return try await runProbe(
+                    ffprobePath: ffprobePath, filePath: filePath,
+                    analyzeDuration: "10000000", probeSize: "10000000",
+                    timeout: 120,
+                    fileName: fileURL.lastPathComponent
                 )
-
-                await logger.logDiagnostic("ffprobe completed in \(String(format: "%.1f", result.duration))s for \(fileURL.lastPathComponent)")
-                return try parseProbeOutput(json: result.stdout, filePath: filePath)
-            } catch {
-                lastError = error
-                if attempt < maxAttempts {
-                    let delay = Double(attempt) * 2.0
-                    await logger.logWarning("ffprobe attempt \(attempt)/\(maxAttempts) failed for \(fileURL.lastPathComponent), retrying in \(Int(delay))s...")
-                    try? await Task.sleep(for: .seconds(delay))
-                }
             }
+            // Network file: fall through to local cache strategy
+            await logger.logDiagnostic("Network probe failed for \(fileURL.lastPathComponent), caching locally...")
         }
 
-        await logger.logError("ffprobe failed after \(maxAttempts) attempts for \(fileURL.lastPathComponent): \(lastError?.localizedDescription ?? "unknown")")
+        // Network files: cache locally and probe from disk (fast + reliable)
+        return try await probeWithLocalCopy(
+            fileURL: fileURL, fileSize: fileSize,
+            ffprobePath: ffprobePath, isMp4Like: isMp4Like
+        )
+    }
 
-        // Last resort for network files: copy partially (or fully if small) to
-        // local disk and probe there. Works for any format — MKV metadata is at
-        // the start, MP4 moov can be at start or end.
-        if isNetworkPath && fileSize > 0 {
-            await logger.logInfo("Attempting local copy probe for \(fileURL.lastPathComponent)...")
-            do {
-                return try await probeWithLocalCopy(fileURL: fileURL, fileSize: fileSize, ffprobePath: ffprobePath, isMp4Like: isMp4Like)
-            } catch {
-                await logger.logError("Partial copy probe also failed for \(fileURL.lastPathComponent): \(error.localizedDescription)")
-            }
-        }
-
-        throw lastError!
+    /// Run a single ffprobe attempt.
+    private func runProbe(
+        ffprobePath: String, filePath: String,
+        analyzeDuration: String, probeSize: String,
+        timeout: TimeInterval, fileName: String
+    ) async throws -> MediaInfo {
+        let arguments = [
+            "-v", "quiet",
+            "-print_format", "json",
+            "-show_format",
+            "-show_streams",
+            "-analyzeduration", analyzeDuration,
+            "-probesize", probeSize,
+            filePath
+        ]
+        let result = try await processRunner.runOrThrow(
+            executablePath: ffprobePath,
+            arguments: arguments,
+            timeout: timeout
+        )
+        await logger.logDiagnostic("ffprobe completed in \(String(format: "%.1f", result.duration))s for \(fileName)")
+        return try parseProbeOutput(json: result.stdout, filePath: filePath)
     }
 
     /// Copy the file locally and probe the local copy.
@@ -148,7 +135,7 @@ actor FFprobeService {
             timeout: 120
         )
 
-        await logger.logInfo("Partial copy probe succeeded for \(fileURL.lastPathComponent)")
+        await logger.logInfo("Local cache probe succeeded for \(fileURL.lastPathComponent)")
 
         // Parse but override the file path/size with the original
         var mediaInfo = try parseProbeOutput(json: result.stdout, filePath: fileURL.path)
