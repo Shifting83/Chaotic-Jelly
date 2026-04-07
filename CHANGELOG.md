@@ -201,3 +201,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Scale ffprobe timeout for large MP4s on network shares (#13) (0d67024)
 
 [0.3.17]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.17
+
+## [0.3.18] - 2026-04-07
+
+### Changes
+- Fix stubborn MP4 probe failures and file replacement permissions (#14) (d33dfdf)
+
+[0.3.18]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.18
