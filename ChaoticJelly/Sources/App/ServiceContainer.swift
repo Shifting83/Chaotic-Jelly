@@ -58,6 +58,7 @@ final class ServiceContainer {
             logger: logger,
             settings: settings
         )
+        let arrService = ArrService(settings: settings, logger: logger)
         let jobManager = JobManager(
             modelContext: modelContext,
             scanService: scanService,
@@ -71,7 +72,6 @@ final class ServiceContainer {
         )
 
         let updateService = UpdateService(settings: settings, logger: logger)
-        let arrService = ArrService(settings: settings, logger: logger)
 
         self.settings = settings
         self.logger = logger
