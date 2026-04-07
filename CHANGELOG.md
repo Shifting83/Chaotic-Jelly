@@ -208,3 +208,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix stubborn MP4 probe failures and file replacement permissions (#14) (d33dfdf)
 
 [0.3.18]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.18
+
+## [0.3.19] - 2026-04-07
+
+### Changes
+- Fix in-place update download for private repos (#15) (4101b38)
+
+[0.3.19]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.19
