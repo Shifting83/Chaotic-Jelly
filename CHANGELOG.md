@@ -87,3 +87,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fix: app icon (remove transparency) and add Help book (5365830)
 
 [0.3.1]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.1
+
+## [0.3.2] - 2026-04-07
+
+### Changes
+- fix: replace multi-file icons with single 1024px AppIcon.png (3ae8fa9)
+
+[0.3.2]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.2
