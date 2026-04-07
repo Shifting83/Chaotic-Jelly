@@ -101,3 +101,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fix: improve ffprobe reliability for network share files (bfdbd3e)
 
 [0.3.3]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.3
+
+## [0.3.4] - 2026-04-07
+
+### Changes
+- fix: path construction for filenames with multiple dots (e.g., P.M.mkv) (1e58818)
+
+[0.3.4]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.4
