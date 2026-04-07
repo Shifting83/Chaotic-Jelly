@@ -243,3 +243,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Skip temp and partial files during scan (#19) (177e11b)
 
 [0.3.23]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.23
+
+## [0.3.24] - 2026-04-07
+
+### Changes
+- Fix MP4 probe by copying full file locally (#20) (ea61389)
+
+[0.3.24]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.24
