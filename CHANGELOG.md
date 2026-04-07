@@ -144,3 +144,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix app icon not showing in built app (#4) (1da319e)
 
 [0.3.9]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.9
+
+## [0.3.10] - 2026-04-07
+
+### Changes
+- Fix: create Resources dir before copying AppIcon.icns (#6) (5a2e64b)
+- Fix app icon by injecting .icns into bundle (#5) (34349d5)
+
+[0.3.10]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.10
+
+## [0.3.11] - 2026-04-07
+
+### Changes
+- Fix Jellyfin profile picker not selectable (#7) (8b8b063)
+
+[0.3.11]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.11
