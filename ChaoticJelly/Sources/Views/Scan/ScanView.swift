@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ScanView: View {
     @State var viewModel: ScanViewModel
+    var settings: AppSettings
     let onReview: (Job) -> Void
 
     var body: some View {
@@ -78,6 +79,29 @@ struct ScanView: View {
                 Toggle("Skip review (scan & process immediately)", isOn: $viewModel.skipReview)
                 Toggle("Dry run (preview only, no changes)", isOn: $viewModel.isDryRun)
                     .disabled(viewModel.skipReview)
+
+                // Sonarr/Radarr instance picker (only shown when instances exist)
+                if !settings.arrInstances.isEmpty && settings.deleteCorruptFiles {
+                    Divider()
+                    Text("*arr instances for corrupt file handling:")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    ForEach(settings.arrInstances.filter(\.isEnabled)) { instance in
+                        Toggle(isOn: Binding(
+                            get: { viewModel.selectedArrInstanceIds.contains(instance.id) },
+                            set: { selected in
+                                if selected {
+                                    viewModel.selectedArrInstanceIds.insert(instance.id)
+                                } else {
+                                    viewModel.selectedArrInstanceIds.remove(instance.id)
+                                }
+                            }
+                        )) {
+                            Label(instance.name.isEmpty ? instance.type.displayName : instance.name,
+                                  systemImage: instance.type.systemImage)
+                        }
+                    }
+                }
             }
             .frame(maxWidth: 400)
 

@@ -59,7 +59,7 @@ struct ContentView: View {
             DashboardView(viewModel: DashboardViewModel(container: container))
         case .scan:
             if let scanVM {
-                ScanView(viewModel: scanVM, onReview: { job in
+                ScanView(viewModel: scanVM, settings: container.settings, onReview: { job in
                     reviewVM?.job = job
                     selectedItem = .review
                 })

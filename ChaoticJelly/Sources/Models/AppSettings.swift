@@ -118,6 +118,25 @@ final class AppSettings: @unchecked Sendable {
         didSet { UserDefaults.standard.set(llmProvider, forKey: Keys.llmProvider) }
     }
 
+    // MARK: Sonarr / Radarr Settings
+
+    var arrInstances: [ArrInstance] = {
+        guard let data = UserDefaults.standard.data(forKey: "settings.arrInstances"),
+              let instances = try? JSONDecoder().decode([ArrInstance].self, from: data) else {
+            return []
+        }
+        return instances
+    }() {
+        didSet {
+            let data = try? JSONEncoder().encode(arrInstances)
+            UserDefaults.standard.set(data, forKey: "settings.arrInstances")
+        }
+    }
+
+    var deleteCorruptFiles: Bool = UserDefaults.standard.bool(forKey: Keys.deleteCorruptFiles) {
+        didSet { UserDefaults.standard.set(deleteCorruptFiles, forKey: Keys.deleteCorruptFiles) }
+    }
+
     // MARK: Update Settings
 
     var checkForUpdates: Bool = UserDefaults.standard.bool(forKey: Keys.checkForUpdates, default: true) {
@@ -172,6 +191,7 @@ final class AppSettings: @unchecked Sendable {
         static let llmEnabled = "settings.llmEnabled"
         static let llmProvider = "settings.llmProvider"
         static let checkForUpdates = "settings.checkForUpdates"
+        static let deleteCorruptFiles = "settings.deleteCorruptFiles"
     }
 }
 

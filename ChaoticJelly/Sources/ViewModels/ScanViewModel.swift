@@ -11,6 +11,7 @@ final class ScanViewModel {
     var processingMode: ProcessingMode = .removeBoth
     var isDryRun = false
     var skipReview = false
+    var selectedArrInstanceIds: Set<UUID> = []
     var isScanning = false
     var isAnalyzing = false
     var isProcessing = false
@@ -82,6 +83,7 @@ final class ScanViewModel {
             isProcessing = true
             await container.jobManager.analyzeAndProcess(
                 job: job,
+                selectedArrInstanceIds: selectedArrInstanceIds,
                 onProgress: { [weak self] current, total, fileName in
                     Task { @MainActor in
                         self?.analysisProgress = (current, total)
@@ -96,6 +98,7 @@ final class ScanViewModel {
             do {
                 try await container.jobManager.analyzeJob(
                     job: job,
+                    selectedArrInstanceIds: selectedArrInstanceIds,
                     onProgress: { [weak self] current, total in
                         Task { @MainActor in
                             self?.analysisProgress = (current, total)
