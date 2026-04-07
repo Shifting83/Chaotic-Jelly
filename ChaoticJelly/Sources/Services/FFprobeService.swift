@@ -83,7 +83,85 @@ actor FFprobeService {
         }
 
         await logger.logError("ffprobe failed after \(maxAttempts) attempts for \(fileURL.lastPathComponent): \(lastError?.localizedDescription ?? "unknown")")
+
+        // Last resort for MP4 on network: copy a partial file locally and probe that.
+        // MP4 moov atom is typically at the start or end, so grab both.
+        if isNetworkPath && isMp4Like && fileSize > 0 {
+            await logger.logInfo("Attempting local partial copy probe for \(fileURL.lastPathComponent)...")
+            do {
+                return try await probeWithPartialCopy(fileURL: fileURL, fileSize: fileSize, ffprobePath: ffprobePath)
+            } catch {
+                await logger.logError("Partial copy probe also failed for \(fileURL.lastPathComponent): \(error.localizedDescription)")
+            }
+        }
+
         throw lastError!
+    }
+
+    /// Copy the first and last chunks of a file locally and probe the partial copy.
+    /// This works because MP4 moov atoms are at the start or end of the file.
+    private func probeWithPartialCopy(fileURL: URL, fileSize: Int64, ffprobePath: String) async throws -> MediaInfo {
+        let chunkSize: Int64 = 20 * 1_048_576  // 20 MB
+        let tempDir = FileManager.default.temporaryDirectory
+        let tempFile = tempDir.appendingPathComponent(".chaotic-probe-\(UUID().uuidString).mp4")
+
+        defer {
+            try? FileManager.default.removeItem(at: tempFile)
+        }
+
+        // Copy the entire file if it's small enough, otherwise just the bookends
+        if fileSize <= chunkSize * 3 {
+            // File is small enough to copy entirely
+            try FileManager.default.copyItem(at: fileURL, to: tempFile)
+        } else {
+            // Copy first 20MB + last 20MB into a temp file
+            let sourceHandle = try FileHandle(forReadingFrom: fileURL)
+            defer { try? sourceHandle.close() }
+
+            FileManager.default.createFile(atPath: tempFile.path, contents: nil)
+            let destHandle = try FileHandle(forWritingTo: tempFile)
+            defer { try? destHandle.close() }
+
+            // Read first chunk
+            let firstChunk = sourceHandle.readData(ofLength: Int(chunkSize))
+            destHandle.write(firstChunk)
+
+            // Seek to end and read last chunk
+            sourceHandle.seek(toFileOffset: UInt64(fileSize - chunkSize))
+            let lastChunk = sourceHandle.readData(ofLength: Int(chunkSize))
+            destHandle.write(lastChunk)
+        }
+
+        let arguments = [
+            "-v", "quiet",
+            "-print_format", "json",
+            "-show_format",
+            "-show_streams",
+            "-analyzeduration", "10000000",
+            "-probesize", "40000000",  // 40MB to cover both chunks
+            tempFile.path
+        ]
+
+        let result = try await processRunner.runOrThrow(
+            executablePath: ffprobePath,
+            arguments: arguments,
+            timeout: 120
+        )
+
+        await logger.logInfo("Partial copy probe succeeded for \(fileURL.lastPathComponent)")
+
+        // Parse but override the file path/size with the original
+        var mediaInfo = try parseProbeOutput(json: result.stdout, filePath: fileURL.path)
+        mediaInfo = MediaInfo(
+            container: mediaInfo.container,
+            duration: mediaInfo.duration,
+            bitRate: mediaInfo.bitRate,
+            fileSize: fileSize,
+            videoStreams: mediaInfo.videoStreams,
+            audioStreams: mediaInfo.audioStreams,
+            subtitleStreams: mediaInfo.subtitleStreams
+        )
+        return mediaInfo
     }
 
     // MARK: - Parsing
