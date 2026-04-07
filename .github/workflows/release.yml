@@ -155,6 +155,39 @@ jobs:
           echo "" >> CHANGELOG.md
           echo "[${VERSION}]: https://github.com/${{ github.repository }}/releases/tag/v${VERSION}" >> CHANGELOG.md
 
+      # ── Import Developer ID Certificate ──
+      - name: Import signing certificate
+        if: steps.version.outputs.skip != 'true' && steps.check_tag.outputs.exists == 'false'
+        env:
+          CERTIFICATE_P12: ${{ secrets.DEVELOPER_ID_CERTIFICATE_P12 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
+        run: |
+          # Create a temporary keychain
+          KEYCHAIN_PATH=$RUNNER_TEMP/signing.keychain-db
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # Import certificate
+          echo "$CERTIFICATE_P12" | base64 --decode > $RUNNER_TEMP/certificate.p12
+          security import $RUNNER_TEMP/certificate.p12 \
+            -k "$KEYCHAIN_PATH" \
+            -P "$CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign \
+            -T /usr/bin/security
+
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # Add to keychain search list
+          security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
+
+          # Verify certificate was imported
+          echo "Installed certificates:"
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+
+      # ── Build ──
       - name: Install XcodeGen
         if: steps.version.outputs.skip != 'true' && steps.check_tag.outputs.exists == 'false'
         run: brew install xcodegen
@@ -177,41 +210,70 @@ jobs:
         if: steps.version.outputs.skip != 'true' && steps.check_tag.outputs.exists == 'false'
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
-          # Use same build command as CI (which passes), just Release config
           xcodebuild \
             -project ChaoticJelly.xcodeproj \
             -scheme ${{ env.SCHEME }} \
             -configuration Release \
             -derivedDataPath build/DerivedData \
             build \
-            CODE_SIGN_IDENTITY="-" \
-            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="Developer ID Application" \
+            CODE_SIGNING_REQUIRED=YES \
+            CODE_SIGNING_ALLOWED=YES \
             MARKETING_VERSION="${{ steps.version.outputs.new_version }}" \
             CURRENT_PROJECT_VERSION="${{ steps.version.outputs.new_build }}"
 
-      - name: Package App
+      # ── Sign & Package ──
+      - name: Package and sign app
         if: steps.version.outputs.skip != 'true' && steps.check_tag.outputs.exists == 'false'
         run: |
-          # Find the built .app in DerivedData
           APP_SRC=$(find "$PROJECT_DIR/build/DerivedData" -name "Chaotic Jelly.app" -type d | head -1)
           echo "Found app at: $APP_SRC"
 
           if [ -z "$APP_SRC" ]; then
-            echo "ERROR: .app not found. Searching all .app bundles:"
+            echo "ERROR: .app not found"
             find "$PROJECT_DIR/build" -name "*.app" -type d
             exit 1
           fi
 
-          # Copy to clean location
           mkdir -p "$PROJECT_DIR/build/Release"
           cp -R "$APP_SRC" "$PROJECT_DIR/build/Release/Chaotic Jelly.app"
 
-          # Ad-hoc codesign so macOS doesn't flag as damaged
-          codesign --force --deep --sign - "$PROJECT_DIR/build/Release/Chaotic Jelly.app"
-          echo "Signed app:"
-          codesign -dv "$PROJECT_DIR/build/Release/Chaotic Jelly.app" 2>&1 || true
-          ls -la "$PROJECT_DIR/build/Release/"
+          # Sign with Developer ID (deep sign all frameworks/helpers)
+          codesign --force --deep --options runtime \
+            --sign "Developer ID Application" \
+            "$PROJECT_DIR/build/Release/Chaotic Jelly.app"
 
+          echo "Signature details:"
+          codesign -dv --verbose=4 "$PROJECT_DIR/build/Release/Chaotic Jelly.app" 2>&1 || true
+
+      # ── Notarize ──
+      - name: Notarize app
+        if: steps.version.outputs.skip != 'true' && steps.check_tag.outputs.exists == 'false'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          TEAM_ID: ${{ secrets.TEAM_ID }}
+        run: |
+          APP_PATH="$PROJECT_DIR/build/Release/Chaotic Jelly.app"
+
+          # Create ZIP for notarization submission
+          ditto -c -k --keepParent "$APP_PATH" "$RUNNER_TEMP/ChaoticJelly.zip"
+
+          # Submit for notarization
+          echo "Submitting for notarization..."
+          xcrun notarytool submit "$RUNNER_TEMP/ChaoticJelly.zip" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_PASSWORD" \
+            --team-id "$TEAM_ID" \
+            --wait --timeout 600
+
+          # Staple the notarization ticket to the app
+          echo "Stapling notarization ticket..."
+          xcrun stapler staple "$APP_PATH"
+
+          echo "Notarization complete"
+
+      # ── Create DMG ──
       - name: Create DMG
         if: steps.version.outputs.skip != 'true' && steps.check_tag.outputs.exists == 'false'
         run: |
@@ -227,8 +289,12 @@ jobs:
             "$DMG_NAME" \
             "$PROJECT_DIR/build/Release" || echo "DMG creation completed with warnings"
 
-          ls -la *.dmg || echo "No DMG files found"
+          # Sign the DMG too
+          codesign --force --sign "Developer ID Application" "$DMG_NAME" || echo "DMG signing skipped"
 
+          ls -la *.dmg
+
+      # ── Commit & Release ──
       - name: Commit version bump
         if: steps.version.outputs.skip != 'true' && steps.check_tag.outputs.exists == 'false'
         run: |
@@ -256,7 +322,6 @@ jobs:
           prerelease: ${{ contains(steps.version.outputs.new_version, '-') }}
           files: |
             *.dmg
-            *.dmg.txt
           generate_release_notes: false
 
       - name: Upload build artifact
@@ -267,3 +332,13 @@ jobs:
           path: |
             *.dmg
             release_notes.md
+
+      # ── Cleanup ──
+      - name: Clean up keychain
+        if: always()
+        run: |
+          KEYCHAIN_PATH=$RUNNER_TEMP/signing.keychain-db
+          if [ -f "$KEYCHAIN_PATH" ]; then
+            security delete-keychain "$KEYCHAIN_PATH" || true
+          fi
+          rm -f $RUNNER_TEMP/certificate.p12 $RUNNER_TEMP/ChaoticJelly.zip
