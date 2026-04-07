@@ -3,7 +3,7 @@ import Foundation
 enum Constants {
     static let appName = "Chaotic Jelly"
     static let bundleIdentifier = "com.chaoticjelly.app"
-    static let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+    static let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.1.0"
     static let buildNumber = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
 
     enum Defaults {
