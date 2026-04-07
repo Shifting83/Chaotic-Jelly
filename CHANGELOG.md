@@ -72,3 +72,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fix: CFBundleExecutable name mismatch — app wouldn't launch (0edbb2b)
 
 [0.2.3]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.2.3
+
+## [0.3.0] - 2026-04-07
+
+### Changes
+- fix: add DEVELOPMENT_TEAM to xcodebuild for Developer ID signing (4765ab6)
+- feat: enable Developer ID code signing and Apple notarization (7783c04)
+
+[0.3.0]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.0
