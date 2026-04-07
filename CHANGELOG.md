@@ -80,3 +80,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - feat: enable Developer ID code signing and Apple notarization (7783c04)
 
 [0.3.0]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.0
+
+## [0.3.1] - 2026-04-07
+
+### Changes
+- fix: app icon (remove transparency) and add Help book (5365830)
+
+[0.3.1]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.1
