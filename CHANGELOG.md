@@ -130,3 +130,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fix: make file detail sheet scrollable for files with many streams (c5d2e59)
 
 [0.3.7]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.7
+
+## [0.3.8] - 2026-04-07
+
+### Changes
+- Fix Help Viewer, DMG icon, and implement update checker (#3) (50e4efa)
+
+[0.3.8]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.8
