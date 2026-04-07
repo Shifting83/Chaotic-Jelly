@@ -194,3 +194,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add pipeline mode: scan and process without review (#12) (f0f6cf9)
 
 [0.3.16]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.16
+
+## [0.3.17] - 2026-04-07
+
+### Changes
+- Scale ffprobe timeout for large MP4s on network shares (#13) (0d67024)
+
+[0.3.17]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.17
