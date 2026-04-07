@@ -90,7 +90,7 @@ actor FFprobeService {
         if isNetworkPath && fileSize > 0 {
             await logger.logInfo("Attempting local copy probe for \(fileURL.lastPathComponent)...")
             do {
-                return try await probeWithPartialCopy(fileURL: fileURL, fileSize: fileSize, ffprobePath: ffprobePath, isMp4Like: isMp4Like)
+                return try await probeWithLocalCopy(fileURL: fileURL, fileSize: fileSize, ffprobePath: ffprobePath, isMp4Like: isMp4Like)
             } catch {
                 await logger.logError("Partial copy probe also failed for \(fileURL.lastPathComponent): \(error.localizedDescription)")
             }
@@ -99,9 +99,11 @@ actor FFprobeService {
         throw lastError!
     }
 
-    /// Copy the file (or its header/footer) locally and probe the local copy.
-    /// MKV metadata is at the front, MP4 moov can be at start or end.
-    private func probeWithPartialCopy(fileURL: URL, fileSize: Int64, ffprobePath: String, isMp4Like: Bool = false) async throws -> MediaInfo {
+    /// Copy the file locally and probe the local copy.
+    /// For MKV (metadata at front), copies just the first 20MB.
+    /// For MP4 (moov atom has absolute byte offsets), copies the full file
+    /// since a partial copy produces an unparseable file.
+    private func probeWithLocalCopy(fileURL: URL, fileSize: Int64, ffprobePath: String, isMp4Like: Bool = false) async throws -> MediaInfo {
         let chunkSize: Int64 = 20 * 1_048_576  // 20 MB
         let tempDir = FileManager.default.temporaryDirectory
         let ext = fileURL.pathExtension.lowercased()
@@ -111,10 +113,14 @@ actor FFprobeService {
             try? FileManager.default.removeItem(at: tempFile)
         }
 
-        // Copy the entire file if it's small enough, otherwise partial copy
-        if fileSize <= chunkSize * 3 {
+        if isMp4Like || fileSize <= chunkSize * 3 {
+            // MP4: must copy full file — moov atom uses absolute byte offsets,
+            // so a partial copy produces garbage that ffprobe can't parse.
+            // Also copy full file if it's small enough anyway.
             try FileManager.default.copyItem(at: fileURL, to: tempFile)
+            await logger.logDiagnostic("Full local copy (\(ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file))) for \(fileURL.lastPathComponent)")
         } else {
+            // MKV/other: metadata is at the front, so first 20MB is sufficient
             let sourceHandle = try FileHandle(forReadingFrom: fileURL)
             defer { try? sourceHandle.close() }
 
@@ -122,16 +128,8 @@ actor FFprobeService {
             let destHandle = try FileHandle(forWritingTo: tempFile)
             defer { try? destHandle.close() }
 
-            // Read first chunk (all formats have headers here)
             let firstChunk = sourceHandle.readData(ofLength: Int(chunkSize))
             destHandle.write(firstChunk)
-
-            // For MP4, also grab the end (moov atom may be there)
-            if isMp4Like {
-                sourceHandle.seek(toFileOffset: UInt64(fileSize - chunkSize))
-                let lastChunk = sourceHandle.readData(ofLength: Int(chunkSize))
-                destHandle.write(lastChunk)
-            }
         }
 
         let arguments = [
