@@ -5,6 +5,7 @@ import SwiftData
 struct ChaoticJellyApp: App {
     let modelContainer: ModelContainer
     @State private var serviceContainer: ServiceContainer?
+    @State private var showUpdateAlert = false
 
     init() {
         do {
@@ -38,7 +39,29 @@ struct ChaoticJellyApp: App {
 
                     // Recover interrupted jobs on startup
                     await container.jobManager.recoverInterruptedJobs()
+
+                    // Check for updates
+                    await container.updateService.checkIfNeeded()
+                    if container.updateService.updateAvailable {
+                        showUpdateAlert = true
+                    }
                 }
+            }
+            .alert("Update Available",
+                   isPresented: $showUpdateAlert,
+                   presenting: serviceContainer?.updateService.latestRelease
+            ) { release in
+                if release.assets.contains(where: { $0.name.hasSuffix(".dmg") }) {
+                    Button("Download") {
+                        serviceContainer?.updateService.downloadDMG()
+                    }
+                }
+                Button("View Release") {
+                    serviceContainer?.updateService.openReleasePage()
+                }
+                Button("Later", role: .cancel) {}
+            } message: { release in
+                Text("Chaotic Jelly \(release.tagName) is available. You're currently running v\(Constants.appVersion).")
             }
         }
         .modelContainer(modelContainer)

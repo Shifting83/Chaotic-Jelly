@@ -19,6 +19,7 @@ final class ServiceContainer {
     let validationService: ValidationService
     let pipeline: ProcessingPipeline
     let jobManager: JobManager
+    let updateService: UpdateService
 
     init(modelContext: ModelContext) {
         let settings = AppSettings()
@@ -67,6 +68,8 @@ final class ServiceContainer {
             settings: settings
         )
 
+        let updateService = UpdateService(settings: settings, logger: logger)
+
         self.settings = settings
         self.logger = logger
         self.processRunner = processRunner
@@ -80,5 +83,6 @@ final class ServiceContainer {
         self.validationService = validationService
         self.pipeline = pipeline
         self.jobManager = jobManager
+        self.updateService = updateService
     }
 }
