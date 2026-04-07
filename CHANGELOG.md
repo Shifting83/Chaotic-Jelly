@@ -180,3 +180,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Faster ffprobe analysis and in-place app updates (#10) (b85867c)
 
 [0.3.14]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.14
+
+## [0.3.15] - 2026-04-07
+
+### Changes
+- Retry ffprobe on transient network share failures (#11) (4b11586)
+
+[0.3.15]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.15
