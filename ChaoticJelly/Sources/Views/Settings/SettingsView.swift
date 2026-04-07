@@ -230,7 +230,7 @@ struct ToolSettingsView: View {
                         Spacer()
                         Text(status.resolvedPath ?? "Not found")
                             .font(.caption)
-                            .foregroundStyle(status.isAvailable ? .secondary : .red)
+                            .foregroundStyle(status.isAvailable ? Color.secondary : Color.red)
                     }
                 }
 

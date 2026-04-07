@@ -1,7 +1,7 @@
 import Foundation
 import SwiftUI
 
-@Observable
+@MainActor @Observable
 final class QueueViewModel {
     private let container: ServiceContainer
 
@@ -36,7 +36,6 @@ final class QueueViewModel {
         return job.files.filter { $0.fileStatus == .failed }
     }
 
-    @MainActor
     func cancelJob() async {
         await container.jobManager.cancelActiveJob()
     }

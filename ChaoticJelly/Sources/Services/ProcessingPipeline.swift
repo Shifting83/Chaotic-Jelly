@@ -171,7 +171,8 @@ actor ProcessingPipeline {
         analysisResult: FileAnalysisResult
     ) async throws -> ProcessResult {
         let isMKV = inputPath.pathExtension.lowercased() == "mkv"
-        let useMkvmerge = isMKV && await mkvService.isAvailable && isStreamRemovalOnly(analysisResult.actions)
+        let mkvAvailable = await mkvService.isAvailable
+        let useMkvmerge = isMKV && mkvAvailable && isStreamRemovalOnly(analysisResult.actions)
 
         if useMkvmerge {
             // Use mkvmerge for pure stream removal from MKV files
