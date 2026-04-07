@@ -51,3 +51,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - feat: add app icon — film strip with foreign language/audio prohibition badge (d354b77)
 
 [0.2.0]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.2.0
+
+## [0.2.1] - 2026-04-07
+
+### Changes
+- fix: build runnable .app with ad-hoc signing instead of unsigned archive (fcdadbf)
+
+[0.2.1]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.2.1
