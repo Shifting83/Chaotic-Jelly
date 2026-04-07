@@ -248,33 +248,53 @@ actor ProcessingPipeline {
             await logger.logDiagnostic("Created backup: \(backupURL.lastPathComponent)")
         }
 
-        // Use replaceItemAt for atomic replacement — handles cross-volume
-        // copies and preserves the destination's filesystem permissions.
+        // Strategy 1: replaceItemAt — atomic, handles cross-volume
         do {
             _ = try fm.replaceItemAt(destination, withItemAt: source)
+            await logger.logDiagnostic("Replaced original (atomic): \(destination.lastPathComponent)")
+            return
         } catch {
-            // Fallback: manual copy → remove → rename
-            await logger.logDiagnostic("replaceItemAt failed, trying manual replacement: \(error.localizedDescription)")
-            let destDir = destination.deletingLastPathComponent()
-            let tempName = ".\(destination.lastPathComponent).chaotic-tmp"
-            let tempURL = destDir.appendingPathComponent(tempName)
-
-            if fm.fileExists(atPath: tempURL.path) {
-                try? fm.removeItem(at: tempURL)
-            }
-
-            try fm.copyItem(at: source, to: tempURL)
-
-            do {
-                try fm.removeItem(at: destination)
-                try fm.moveItem(at: tempURL, to: destination)
-            } catch {
-                try? fm.removeItem(at: tempURL)
-                throw error
-            }
+            await logger.logDiagnostic("replaceItemAt failed: \(error.localizedDescription)")
         }
 
-        await logger.logDiagnostic("Replaced original: \(destination.lastPathComponent)")
+        // Strategy 2: Direct remove + copy (no temp file in destination dir)
+        // This avoids needing write permission to create new files in the
+        // destination directory — we only need permission to overwrite the
+        // existing file.
+        do {
+            try fm.removeItem(at: destination)
+            try fm.copyItem(at: source, to: destination)
+            await logger.logDiagnostic("Replaced original (remove+copy): \(destination.lastPathComponent)")
+            return
+        } catch {
+            await logger.logDiagnostic("remove+copy failed: \(error.localizedDescription)")
+        }
+
+        // Strategy 3: Copy via shell cp command as last resort
+        // This can sometimes succeed where FileManager fails due to
+        // different permission handling
+        do {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/bin/cp")
+            process.arguments = ["-f", source.path, destination.path]
+            process.standardOutput = Pipe()
+            process.standardError = Pipe()
+            try process.run()
+            process.waitUntilExit()
+
+            if process.terminationStatus == 0 {
+                await logger.logDiagnostic("Replaced original (cp): \(destination.lastPathComponent)")
+                return
+            }
+            let stderr = (process.standardError as? Pipe).flatMap {
+                String(data: $0.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)
+            } ?? ""
+            throw NSError(domain: "ProcessingPipeline", code: Int(process.terminationStatus),
+                          userInfo: [NSLocalizedDescriptionKey: "cp failed: \(stderr)"])
+        } catch {
+            await logger.logError("All replacement strategies failed for \(destination.lastPathComponent): \(error.localizedDescription)")
+            throw error
+        }
     }
 
     // MARK: - Helpers
