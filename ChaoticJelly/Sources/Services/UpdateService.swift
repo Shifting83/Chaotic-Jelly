@@ -101,32 +101,44 @@ final class UpdateService {
             return
         }
 
-        guard let downloadURL = URL(string: dmgAsset.browserDownloadURL) else {
-            lastError = "Invalid download URL"
-            return
-        }
-
         isInstalling = true
         installProgress = "Downloading update..."
         lastError = nil
 
         do {
-            // 1. Download DMG
+            // 1. Download DMG via GitHub API (handles private repos correctly)
+            //    The browserDownloadURL redirects through GitHub → S3 and strips
+            //    the auth header on redirect. Use the API asset URL instead.
             let dmgPath = FileManager.default.temporaryDirectory
                 .appendingPathComponent("ChaoticJelly-update.dmg")
 
-            // Clean up previous download
             try? FileManager.default.removeItem(at: dmgPath)
 
+            // Use the API asset URL for private repo downloads
+            let apiURL = "https://api.github.com/repos/\(Self.owner)/\(Self.repo)/releases/assets/\(dmgAsset.id)"
+            guard let downloadURL = URL(string: apiURL) else {
+                throw UpdateError.downloadFailed
+            }
+
             var request = URLRequest(url: downloadURL)
+            // Accept: application/octet-stream tells the GitHub API to return
+            // the binary content directly instead of JSON metadata
+            request.setValue("application/octet-stream", forHTTPHeaderField: "Accept")
+            request.setValue("Chaotic-Jelly/\(Constants.appVersion)", forHTTPHeaderField: "User-Agent")
             if let token = try? KeychainService.load(key: .githubPAT) {
                 request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
             }
-            request.setValue("application/octet-stream", forHTTPHeaderField: "Accept")
 
             let (tempURL, response) = try await URLSession.shared.download(for: request)
 
-            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            guard let http = response as? HTTPURLResponse else {
+                throw UpdateError.downloadFailed
+            }
+
+            // GitHub API returns 200 for direct download, or 302 redirect to S3
+            // URLSession follows redirects automatically
+            guard (200...299).contains(http.statusCode) else {
+                await logger.logError("Download failed with HTTP \(http.statusCode)")
                 throw UpdateError.downloadFailed
             }
 
@@ -324,12 +336,16 @@ struct GitHubRelease: Codable, Sendable {
 }
 
 struct GitHubAsset: Codable, Sendable {
+    let id: Int
     let name: String
+    let url: String
     let browserDownloadURL: String
     let size: Int
 
     enum CodingKeys: String, CodingKey {
+        case id
         case name
+        case url
         case browserDownloadURL = "browser_download_url"
         case size
     }
