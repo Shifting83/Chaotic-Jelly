@@ -143,8 +143,15 @@ actor ProcessingPipeline {
 
         onProgress?(.init(stage: .cleanup, progress: 0.95, message: "Cleaning up..."))
 
-        // 6. Clean up cache
+        // 6. Clean up cache and backup files
         await cacheManager.cleanFileCache(jobID: jobID, fileID: fileID)
+
+        // Remove backup file after successful processing — the output
+        // has already been validated, so the backup is no longer needed.
+        if jobSettings.createBackup {
+            let backupURL = sourceURL.appendingPathExtension("chaotic-backup")
+            try? FileManager.default.removeItem(at: backupURL)
+        }
 
         let result = FileProcessingResult(
             originalSize: analysisResult.mediaInfo.fileSize,
