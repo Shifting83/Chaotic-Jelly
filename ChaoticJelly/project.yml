@@ -28,6 +28,7 @@ targets:
         type: group
     resources:
       - path: Resources/Assets.xcassets
+      - path: Resources/ChaoticJelly.help
       - path: Resources/Info.plist
         buildPhase: none
     settings:
@@ -50,6 +51,8 @@ targets:
         NSMainStoryboardFile: ""
         LSApplicationCategoryType: public.app-category.utilities
         NSHumanReadableCopyright: "Copyright 2026 Chaotic Jelly"
+        CFBundleHelpBookName: Chaotic Jelly Help
+        CFBundleHelpBookFolder: ChaoticJelly.help
         SUFeedURL: ""
         SUPublicEDKey: ""
 

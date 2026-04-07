@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Chaotic Jelly Help">
+    <meta name="robots" content="anchors">
+    <title>Chaotic Jelly Help</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            max-width: 680px;
+            margin: 40px auto;
+            padding: 0 20px;
+            color: #333;
+            line-height: 1.6;
+        }
+        h1 { font-size: 28px; margin-bottom: 8px; }
+        h2 { font-size: 20px; margin-top: 32px; color: #555; }
+        h3 { font-size: 16px; margin-top: 24px; }
+        code { background: #f0f0f0; padding: 2px 6px; border-radius: 4px; font-size: 14px; }
+        .shortcut { color: #666; font-style: italic; }
+        ul { padding-left: 20px; }
+        li { margin-bottom: 8px; }
+        hr { border: none; border-top: 1px solid #ddd; margin: 32px 0; }
+    </style>
+</head>
+<body>
+    <h1>Chaotic Jelly Help</h1>
+    <p>Chaotic Jelly scans your video library, identifies non-English subtitle and audio tracks, and removes them — saving disk space and keeping your media clean for Jellyfin.</p>
+
+    <hr>
+
+    <h2>Getting Started</h2>
+    <ol>
+        <li><strong>New Scan</strong> — Select a folder containing video files. Chaotic Jelly scans recursively for MKV, MP4, M4V, AVI, MOV, TS, and M2TS files.</li>
+        <li><strong>Choose a mode</strong> — Remove subtitles only, audio only, both, or optimize for Jellyfin direct play.</li>
+        <li><strong>Review</strong> — Inspect every file and planned action before processing. Use dry-run to preview without changes.</li>
+        <li><strong>Process</strong> — Files are copied locally, processed, validated, and then the original is replaced.</li>
+    </ol>
+
+    <h2>Processing Modes</h2>
+    <ul>
+        <li><strong>Remove non-English subtitles only</strong> — Keeps all audio, removes subtitle tracks that aren't in your keep-language list.</li>
+        <li><strong>Remove non-English audio only</strong> — Keeps all subtitles, removes audio tracks that aren't in your keep-language list.</li>
+        <li><strong>Remove both</strong> — Removes both non-English subtitles and audio tracks.</li>
+        <li><strong>Optimize for Jellyfin</strong> — Additionally remuxes or transcodes for Jellyfin direct play compatibility.</li>
+    </ul>
+
+    <h2>Language Handling</h2>
+    <p>Chaotic Jelly uses language tags embedded in video files (ISO 639 codes like "eng", "fre", "ger") to determine which tracks to keep or remove.</p>
+    <h3>Conservative Mode</h3>
+    <p>When enabled (default), tracks with missing or ambiguous language tags are <strong>kept</strong> rather than removed. This prevents accidental data loss.</p>
+    <h3>Preserved Tracks</h3>
+    <ul>
+        <li><strong>Forced subtitles</strong> — Always preserved (e.g., translations of foreign-language dialogue within an English film).</li>
+        <li><strong>SDH subtitles</strong> — Optionally preserved (hearing-impaired subtitles).</li>
+        <li><strong>Commentary tracks</strong> — Optionally preserved.</li>
+    </ul>
+
+    <h2>Network Share Safety</h2>
+    <p>Files on network shares (SMB/NFS) are never processed in place. Chaotic Jelly:</p>
+    <ol>
+        <li>Copies the file to a local cache</li>
+        <li>Processes the local copy</li>
+        <li>Validates the output (duration, streams, integrity)</li>
+        <li>Atomically replaces the original only after validation passes</li>
+    </ol>
+
+    <h2>Settings</h2>
+    <h3>Language</h3>
+    <p>Configure which languages to keep. Default is English ("eng"). Add additional language codes (e.g., "spa" for Spanish, "fre" for French).</p>
+    <h3>Tools</h3>
+    <p>Chaotic Jelly uses FFmpeg, FFprobe, and optionally MKVToolNix. Configure custom paths or use the bundled/auto-detected binaries.</p>
+    <h3>Cache</h3>
+    <p>Set the local cache path and maximum size. Cache is used for safe network share processing.</p>
+
+    <h2>Keyboard Shortcuts</h2>
+    <ul>
+        <li><span class="shortcut">⌘1–⌘6</span> — Switch between Dashboard, Scan, Review, Queue, History, and Logs</li>
+        <li><span class="shortcut">⌘,</span> — Open Settings</li>
+        <li><span class="shortcut">⌘R</span> — Refresh current view</li>
+    </ul>
+
+    <h2>Troubleshooting</h2>
+    <h3>"Tool not found" error</h3>
+    <p>Install FFmpeg via Homebrew: <code>brew install ffmpeg</code>. Or configure custom tool paths in Settings → Tools.</p>
+    <h3>Processing fails on a file</h3>
+    <p>Check the Logs tab for detailed error output including the exact FFmpeg command and exit code. Failed files can be retried from the History tab.</p>
+    <h3>File on network share is locked</h3>
+    <p>Ensure no other application (Jellyfin, Plex) has the file open. Chaotic Jelly will retry once, then skip locked files.</p>
+
+    <hr>
+    <p><small>Chaotic Jelly — Video file manager for Jellyfin</small></p>
+</body>
+</html>
