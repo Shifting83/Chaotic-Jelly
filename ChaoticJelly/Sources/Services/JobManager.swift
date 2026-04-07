@@ -181,6 +181,9 @@ final class JobManager {
         job: Job,
         onProgress: (@Sendable (Int, Int, String) -> Void)? = nil
     ) async {
+        // Transition through required states to reach processing
+        job.transition(to: .analyzing)
+        job.transition(to: .reviewing)
         job.transition(to: .processing)
         isProcessing = true
         activeJob = job
