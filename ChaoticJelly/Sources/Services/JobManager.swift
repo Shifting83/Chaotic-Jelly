@@ -173,6 +173,145 @@ final class JobManager {
         try? modelContext.save()
     }
 
+    // MARK: - Pipelined Analyze & Process
+
+    /// Analyze and process files in a streaming pipeline — files are processed
+    /// as soon as they're analyzed, no separate review step needed.
+    func analyzeAndProcess(
+        job: Job,
+        onProgress: (@Sendable (Int, Int, String) -> Void)? = nil
+    ) async {
+        job.transition(to: .processing)
+        isProcessing = true
+        activeJob = job
+        try? modelContext.save()
+
+        await pipeline.reset()
+
+        let jobSettings = decodeJobSettings(job)
+        let files = job.files.filter { $0.fileStatus == .pending }
+        let analyzeConcurrency = max(settings.maxConcurrentFiles * 4, 8)
+        var totalAnalyzed = 0
+        var totalProcessed = 0
+
+        // Process files in batches: analyze a batch, then immediately process
+        // any files that need it before moving to the next batch.
+        var index = 0
+        while index < files.count {
+            guard job.jobStatus == .processing else { break }
+
+            let batchEnd = min(index + analyzeConcurrency, files.count)
+            let batch = Array(files[index..<batchEnd])
+
+            // Mark batch as analyzing
+            for file in batch {
+                file.transition(to: .analyzing)
+            }
+
+            // Analyze batch concurrently
+            let results = await withTaskGroup(of: (Int, Result<(MediaInfo, FileAnalysisResult), Error>).self) { group in
+                for (offset, file) in batch.enumerated() {
+                    let fileURL = URL(fileURLWithPath: file.fullPath)
+                    group.addTask { [ffprobeService, analysisEngine] in
+                        do {
+                            let mediaInfo = try await ffprobeService.probe(fileURL: fileURL)
+                            let analysis = analysisEngine.analyze(mediaInfo: mediaInfo, settings: jobSettings)
+                            return (offset, .success((mediaInfo, analysis)))
+                        } catch {
+                            return (offset, .failure(error))
+                        }
+                    }
+                }
+
+                var collected = [(Int, Result<(MediaInfo, FileAnalysisResult), Error>)]()
+                for await result in group {
+                    collected.append(result)
+                }
+                return collected
+            }
+
+            // Apply analysis results
+            var filesToProcess: [(FileEntry, FileAnalysisResult)] = []
+            for (offset, result) in results {
+                let file = batch[offset]
+                switch result {
+                case .success(let (mediaInfo, analysis)):
+                    file.mediaInfo = mediaInfo
+                    file.analysisResult = analysis
+                    file.warnings = analysis.warnings
+                    if analysis.requiresProcessing {
+                        file.transition(to: .analyzed)
+                        filesToProcess.append((file, analysis))
+                    } else {
+                        file.transition(to: .skipped)
+                    }
+                case .failure(let error):
+                    file.transition(to: .failed)
+                    file.errorMessage = error.localizedDescription
+                    job.errorCount += 1
+                    await logger.logError("Analysis failed for \(file.fileName): \(error.localizedDescription)")
+                }
+                totalAnalyzed += 1
+            }
+            try? modelContext.save()
+
+            // Process analyzed files from this batch immediately
+            for (file, analysis) in filesToProcess {
+                guard job.jobStatus == .processing else { break }
+
+                file.transition(to: .processing)
+                try? modelContext.save()
+
+                onProgress?(totalProcessed, files.count, file.fileName)
+
+                do {
+                    let sourceURL = URL(fileURLWithPath: file.fullPath)
+                    let result = try await pipeline.processFile(
+                        sourceURL: sourceURL,
+                        jobID: job.id,
+                        fileID: file.id,
+                        analysisResult: analysis,
+                        jobSettings: jobSettings,
+                        onProgress: { [weak self] progress in
+                            Task { @MainActor in
+                                self?.currentFileProgress = progress
+                            }
+                        }
+                    )
+                    file.processedSize = result.processedSize
+                    file.commandLog = result.commandLog
+                    file.transition(to: .completed)
+                    job.totalBytesAfter += result.processedSize
+                } catch {
+                    file.transition(to: .failed)
+                    file.errorMessage = error.localizedDescription
+                    job.errorCount += 1
+                    await logger.logError("Processing failed for \(file.fileName): \(error.localizedDescription)")
+                }
+
+                totalProcessed += 1
+                let terminalCount = job.files.filter { $0.fileStatus.isTerminal }.count
+                job.progressFraction = Double(terminalCount) / Double(job.files.count)
+                try? modelContext.save()
+            }
+
+            index = batchEnd
+        }
+
+        // Complete the job
+        if job.jobStatus == .processing {
+            let processedFiles = job.files.filter { $0.fileStatus == .completed || $0.fileStatus == .failed }
+            let allFailed = !processedFiles.isEmpty && processedFiles.allSatisfy { $0.fileStatus == .failed }
+            job.transition(to: allFailed ? .failed : .completed)
+        }
+
+        isProcessing = false
+        activeJob = nil
+        currentFileProgress = nil
+        try? modelContext.save()
+        await cacheManager.cleanJobCache(jobID: job.id)
+    }
+
     // MARK: - Processing
 
     /// Process all analyzed files in a job.

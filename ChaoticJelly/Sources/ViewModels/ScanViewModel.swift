@@ -10,10 +10,13 @@ final class ScanViewModel {
     var selectedFolderURL: URL?
     var processingMode: ProcessingMode = .removeBoth
     var isDryRun = false
+    var skipReview = false
     var isScanning = false
     var isAnalyzing = false
+    var isProcessing = false
     var scanProgress: ScanProgress?
     var analysisProgress: (current: Int, total: Int)?
+    var processingFileName: String?
     var currentJob: Job?
     var error: String?
 
@@ -73,23 +76,37 @@ final class ScanViewModel {
         }
 
         isScanning = false
-        isAnalyzing = true
 
-        // Analyze
-        do {
-            try await container.jobManager.analyzeJob(
+        if skipReview {
+            // Pipeline mode: analyze and process simultaneously
+            isProcessing = true
+            await container.jobManager.analyzeAndProcess(
                 job: job,
-                onProgress: { [weak self] current, total in
+                onProgress: { [weak self] current, total, fileName in
                     Task { @MainActor in
                         self?.analysisProgress = (current, total)
+                        self?.processingFileName = fileName
                     }
                 }
             )
-        } catch {
-            self.error = error.localizedDescription
+            isProcessing = false
+        } else {
+            // Review mode: analyze all first, then let user review
+            isAnalyzing = true
+            do {
+                try await container.jobManager.analyzeJob(
+                    job: job,
+                    onProgress: { [weak self] current, total in
+                        Task { @MainActor in
+                            self?.analysisProgress = (current, total)
+                        }
+                    }
+                )
+            } catch {
+                self.error = error.localizedDescription
+            }
+            isAnalyzing = false
         }
-
-        isAnalyzing = false
     }
 
     func reset() {
@@ -97,8 +114,10 @@ final class ScanViewModel {
         currentJob = nil
         scanProgress = nil
         analysisProgress = nil
+        processingFileName = nil
         error = nil
         isScanning = false
         isAnalyzing = false
+        isProcessing = false
     }
 }
