@@ -15,6 +15,7 @@ jobs:
     name: Create v0.1.0 Release
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    if: github.ref == 'refs/heads/main'
 
     steps:
       - name: Checkout
@@ -33,11 +34,23 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Delete v0.1.0 branch if it exists
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          if git ls-remote --heads origin v0.1.0 | grep -q v0.1.0; then
+            echo "Deleting accidental v0.1.0 branch so the tag can be created"
+            git push origin --delete v0.1.0 || echo "Could not delete branch"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Create tag
         if: steps.check.outputs.exists == 'false'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -d v0.1.0 2>/dev/null || true
+          git push origin :refs/tags/v0.1.0 2>/dev/null || true
           git tag -a v0.1.0 -m "Release v0.1.0 — Initial Phase 1 MVP scaffold"
           git push origin v0.1.0
 
@@ -47,42 +60,41 @@ jobs:
           gh release create v0.1.0 \
             --title "Chaotic Jelly v0.1.0" \
             --notes "$(cat <<'NOTES'
-## Chaotic Jelly v0.1.0 — Initial Release
+          ## Chaotic Jelly v0.1.0 — Initial Release
 
-First release of Chaotic Jelly, a macOS desktop app for managing video files on local disks and network shares.
+          First release of Chaotic Jelly, a macOS desktop app for managing video files on local disks and network shares.
 
-### Features
-- Recursive folder scanning for video files (MKV, MP4, M4V, AVI, MOV, TS, M2TS)
-- FFprobe-based media analysis with full JSON stream parsing
-- Language detection with confidence levels (high/medium/low/unknown)
-- Non-English subtitle and audio track removal via FFmpeg
-- MKVToolNix (mkvmerge) integration for safer MKV stream operations
-- Network-share-safe processing (copy-local → process → validate → replace)
-- Post-process validation (duration, stream counts, integrity)
-- Local working cache with space management and orphan cleanup
-- SwiftData job persistence with state machine transitions
-- Job history with space savings tracking
-- Crash-safe job recovery on app restart
-- Dry-run preview mode
-- Forced subtitle / SDH / commentary track preservation
-- Secure token storage via macOS Keychain
-- Structured logging with OSLog and file export
-- Full SwiftUI interface: Dashboard, Scan, Review, Queue, History, Settings, Logs
-- Auto-versioning and release workflow via GitHub Actions
-- Unit tests for parsing, analysis engine, job states, language utils
+          ### Features
+          - Recursive folder scanning for video files (MKV, MP4, M4V, AVI, MOV, TS, M2TS)
+          - FFprobe-based media analysis with full JSON stream parsing
+          - Language detection with confidence levels (high/medium/low/unknown)
+          - Non-English subtitle and audio track removal via FFmpeg
+          - MKVToolNix (mkvmerge) integration for safer MKV stream operations
+          - Network-share-safe processing (copy-local, process, validate, replace)
+          - Post-process validation (duration, stream counts, integrity)
+          - Local working cache with space management and orphan cleanup
+          - SwiftData job persistence with state machine transitions
+          - Job history with space savings tracking
+          - Crash-safe job recovery on app restart
+          - Dry-run preview mode
+          - Forced subtitle / SDH / commentary track preservation
+          - Secure token storage via macOS Keychain
+          - Structured logging with OSLog and file export
+          - Full SwiftUI interface: Dashboard, Scan, Review, Queue, History, Settings, Logs
+          - Auto-versioning and release workflow via GitHub Actions
+          - Unit tests for parsing, analysis engine, job states, language utils
 
-### Requirements
-- macOS 14 (Sonoma) or later
-- FFmpeg, FFprobe (bundled or via Homebrew)
-- MKVToolNix (optional)
+          ### Requirements
+          - macOS 14 (Sonoma) or later
+          - FFmpeg, FFprobe (bundled or via Homebrew)
+          - MKVToolNix (optional)
 
-**Full Changelog**: https://github.com/Shifting83/Chaotic-Jelly/commits/v0.1.0
-NOTES
+          **Full Changelog**: https://github.com/Shifting83/Chaotic-Jelly/commits/v0.1.0
+          NOTES
             )"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Disable this workflow
+      - name: Done
         if: steps.check.outputs.exists == 'false'
-        run: |
-          echo "Bootstrap release created successfully. This workflow can be deleted."
+        run: echo "Bootstrap release created successfully. This workflow can be deleted."
