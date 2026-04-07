@@ -77,7 +77,7 @@ final class AppSettings: @unchecked Sendable {
         didSet { UserDefaults.standard.set(maxConcurrentFiles, forKey: Keys.maxConcurrentFiles) }
     }
 
-    var createBackup: Bool = UserDefaults.standard.bool(forKey: Keys.createBackup, default: true) {
+    var createBackup: Bool = UserDefaults.standard.bool(forKey: Keys.createBackup, default: false) {
         didSet { UserDefaults.standard.set(createBackup, forKey: Keys.createBackup) }
     }
 
