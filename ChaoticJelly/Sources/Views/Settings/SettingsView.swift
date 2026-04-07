@@ -341,7 +341,14 @@ struct UpdateSettingsView: View {
                     }
                 }
 
-                if updateService.updateAvailable, let release = updateService.latestRelease {
+                if updateService.isInstalling {
+                    HStack {
+                        ProgressView()
+                            .controlSize(.small)
+                        Text(updateService.installProgress ?? "Installing...")
+                            .foregroundStyle(.secondary)
+                    }
+                } else if updateService.updateAvailable, let release = updateService.latestRelease {
                     HStack {
                         Image(systemName: "arrow.down.circle.fill")
                             .foregroundStyle(.blue)
@@ -349,6 +356,9 @@ struct UpdateSettingsView: View {
                             .fontWeight(.medium)
                         Spacer()
                         if release.assets.contains(where: { $0.name.hasSuffix(".dmg") }) {
+                            Button("Install Now") {
+                                Task { await updateService.installUpdate() }
+                            }
                             Button("Download") {
                                 updateService.downloadDMG()
                             }

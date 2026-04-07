@@ -52,12 +52,14 @@ struct ChaoticJellyApp: App {
                    presenting: serviceContainer?.updateService.latestRelease
             ) { release in
                 if release.assets.contains(where: { $0.name.hasSuffix(".dmg") }) {
-                    Button("Download") {
+                    Button("Install Now") {
+                        Task {
+                            await serviceContainer?.updateService.installUpdate()
+                        }
+                    }
+                    Button("Download Manually") {
                         serviceContainer?.updateService.downloadDMG()
                     }
-                }
-                Button("View Release") {
-                    serviceContainer?.updateService.openReleasePage()
                 }
                 Button("Later", role: .cancel) {}
             } message: { release in
