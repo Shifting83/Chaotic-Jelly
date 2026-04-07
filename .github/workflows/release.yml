@@ -277,6 +277,25 @@ jobs:
           echo "Notarization complete"
 
       # ── Create DMG ──
+      - name: Generate volume icon
+        if: steps.version.outputs.skip != 'true' && steps.check_tag.outputs.exists == 'false'
+        run: |
+          # Build .icns from the app icon PNGs for the DMG volume icon
+          ICONSET_DIR="$RUNNER_TEMP/ChaoticJelly.iconset"
+          mkdir -p "$ICONSET_DIR"
+          SRC="$PROJECT_DIR/Resources/Assets.xcassets/AppIcon.appiconset"
+          cp "$SRC/icon_16x16.png"      "$ICONSET_DIR/icon_16x16.png"
+          cp "$SRC/icon_16x16@2x.png"   "$ICONSET_DIR/icon_16x16@2x.png"
+          cp "$SRC/icon_32x32.png"      "$ICONSET_DIR/icon_32x32.png"
+          cp "$SRC/icon_32x32@2x.png"   "$ICONSET_DIR/icon_32x32@2x.png"
+          cp "$SRC/icon_128x128.png"    "$ICONSET_DIR/icon_128x128.png"
+          cp "$SRC/icon_128x128@2x.png" "$ICONSET_DIR/icon_128x128@2x.png"
+          cp "$SRC/icon_256x256.png"    "$ICONSET_DIR/icon_256x256.png"
+          cp "$SRC/icon_256x256@2x.png" "$ICONSET_DIR/icon_256x256@2x.png"
+          cp "$SRC/icon_512x512.png"    "$ICONSET_DIR/icon_512x512.png"
+          cp "$SRC/icon_512x512@2x.png" "$ICONSET_DIR/icon_512x512@2x.png"
+          iconutil -c icns "$ICONSET_DIR" -o "$RUNNER_TEMP/VolumeIcon.icns"
+
       - name: Create DMG
         if: steps.version.outputs.skip != 'true' && steps.check_tag.outputs.exists == 'false'
         run: |
@@ -285,10 +304,12 @@ jobs:
 
           create-dmg \
             --volname "Chaotic Jelly ${{ steps.version.outputs.new_version }}" \
+            --volicon "$RUNNER_TEMP/VolumeIcon.icns" \
             --window-pos 200 120 \
             --window-size 600 400 \
             --icon-size 100 \
-            --app-drop-link 400 190 \
+            --icon "Chaotic Jelly.app" 175 190 \
+            --app-drop-link 425 190 \
             "$DMG_NAME" \
             "$PROJECT_DIR/build/Release" || echo "DMG creation completed with warnings"
 
