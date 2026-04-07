@@ -47,7 +47,7 @@ struct SettingsView: View {
                 .tabItem { Label("Cache", systemImage: "externaldrive") }
                 .tag(SettingsTab.cache)
 
-            UpdateSettingsView(settings: container.settings)
+            UpdateSettingsView(settings: container.settings, updateService: container.updateService)
                 .tabItem { Label("Updates", systemImage: "arrow.triangle.2.circlepath") }
                 .tag(SettingsTab.updates)
         }
@@ -314,6 +314,7 @@ struct CacheSettingsView: View {
 
 struct UpdateSettingsView: View {
     @Bindable var settings: AppSettings
+    var updateService: UpdateService
     @State private var hasGitHubToken = false
     @State private var tokenInput = ""
 
@@ -321,6 +322,60 @@ struct UpdateSettingsView: View {
         Form {
             Section {
                 Toggle("Check for updates automatically", isOn: $settings.checkForUpdates)
+
+                HStack {
+                    Button("Check Now") {
+                        Task { await updateService.check() }
+                    }
+                    .disabled(updateService.isChecking)
+
+                    if updateService.isChecking {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+
+                    Spacer()
+
+                    if let date = updateService.lastCheckDate {
+                        Text("Last checked: \(date.formatted(.relative(presentation: .named)))")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                if updateService.updateAvailable, let release = updateService.latestRelease {
+                    HStack {
+                        Image(systemName: "arrow.down.circle.fill")
+                            .foregroundStyle(.blue)
+                        Text("\(release.tagName) available")
+                            .fontWeight(.medium)
+                        Spacer()
+                        if release.assets.contains(where: { $0.name.hasSuffix(".dmg") }) {
+                            Button("Download") {
+                                updateService.downloadDMG()
+                            }
+                        }
+                        Button("View Release") {
+                            updateService.openReleasePage()
+                        }
+                    }
+                } else if updateService.latestRelease != nil {
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                        Text("You're up to date")
+                    }
+                }
+
+                if let error = updateService.lastError {
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.yellow)
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
 
             Section("GitHub Private Repository") {
