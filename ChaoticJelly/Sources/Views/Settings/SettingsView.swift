@@ -167,10 +167,8 @@ struct JellyfinSettingsView: View {
             if settings.optimizeForJellyfin {
                 Section("Target Profile") {
                     Picker("Profile", selection: $settings.jellyfinProfileRaw) {
-                        ForEach(JellyfinProfile.allCases, id: \.self) { profile in
-                            VStack(alignment: .leading) {
-                                Text(profile.displayName).tag(profile.rawValue)
-                            }
+                        ForEach(JellyfinProfile.allCases, id: \.rawValue) { profile in
+                            Text(profile.displayName).tag(profile.rawValue)
                         }
                     }
                     .pickerStyle(.radioGroup)
