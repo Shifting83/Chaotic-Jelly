@@ -14,6 +14,7 @@ final class JobManager {
     private let cacheManager: CacheManager
     private let logger: LoggingService
     private let settings: AppSettings
+    private let arrService: ArrService
 
     // Observable state
     private(set) var activeJob: Job?
@@ -30,7 +31,8 @@ final class JobManager {
         pipeline: ProcessingPipeline,
         cacheManager: CacheManager,
         logger: LoggingService,
-        settings: AppSettings
+        settings: AppSettings,
+        arrService: ArrService
     ) {
         self.modelContext = modelContext
         self.scanService = scanService
@@ -40,6 +42,7 @@ final class JobManager {
         self.cacheManager = cacheManager
         self.logger = logger
         self.settings = settings
+        self.arrService = arrService
     }
 
     // MARK: - Job Creation
@@ -97,6 +100,7 @@ final class JobManager {
     /// Analyze all files in a job using ffprobe.
     func analyzeJob(
         job: Job,
+        selectedArrInstanceIds: Set<UUID>? = nil,
         onProgress: (@Sendable (Int, Int) -> Void)? = nil
     ) async throws {
         job.transition(to: .analyzing)
@@ -160,6 +164,7 @@ final class JobManager {
                     file.errorMessage = error.localizedDescription
                     job.errorCount += 1
                     await logger.logError("Analysis failed for \(file.fileName): \(error.localizedDescription)")
+                    await handleCorruptFile(file, selectedArrInstanceIds: selectedArrInstanceIds)
                 }
                 completed += 1
                 onProgress?(completed, files.count)
@@ -179,6 +184,7 @@ final class JobManager {
     /// as soon as they're analyzed, no separate review step needed.
     func analyzeAndProcess(
         job: Job,
+        selectedArrInstanceIds: Set<UUID>? = nil,
         onProgress: (@Sendable (Int, Int, String) -> Void)? = nil
     ) async {
         // Transition through required states to reach processing
@@ -253,6 +259,7 @@ final class JobManager {
                     file.errorMessage = error.localizedDescription
                     job.errorCount += 1
                     await logger.logError("Analysis failed for \(file.fileName): \(error.localizedDescription)")
+                    await handleCorruptFile(file, selectedArrInstanceIds: selectedArrInstanceIds)
                 }
                 totalAnalyzed += 1
             }
@@ -470,6 +477,28 @@ final class JobManager {
         // Clean orphaned caches
         let activeIDs = Set(fetchJobs().filter { $0.jobStatus.isActive }.map(\.id))
         await cacheManager.cleanOrphanedCaches(activeJobIDs: activeIDs)
+    }
+
+    // MARK: - Corrupt File Handling
+
+    /// When analysis fails and deleteCorruptFiles is enabled, try to
+    /// identify the file via Sonarr/Radarr, delete it, and trigger re-download.
+    private func handleCorruptFile(_ file: FileEntry, selectedArrInstanceIds: Set<UUID>?) async {
+        guard settings.deleteCorruptFiles else { return }
+
+        let path = file.fullPath
+        let fileName = file.fileName
+
+        await logger.logInfo("Handling corrupt file via *arr: \(fileName)")
+        let handled = await arrService.handleCorruptFile(
+            at: path,
+            fileName: fileName,
+            selectedInstanceIds: selectedArrInstanceIds?.isEmpty == true ? nil : selectedArrInstanceIds
+        )
+
+        if handled {
+            file.errorMessage = "Corrupt file — deleted and re-download triggered"
+        }
     }
 
     // MARK: - Helpers

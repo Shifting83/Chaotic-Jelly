@@ -11,6 +11,7 @@ struct SettingsView: View {
         case jellyfin = "Jellyfin"
         case tools = "Tools"
         case cache = "Cache"
+        case arr = "Sonarr / Radarr"
         case updates = "Updates"
 
         var systemImage: String {
@@ -20,6 +21,7 @@ struct SettingsView: View {
             case .jellyfin: return "play.rectangle"
             case .tools: return "wrench.and.screwdriver"
             case .cache: return "externaldrive"
+            case .arr: return "arrow.clockwise.circle"
             case .updates: return "arrow.triangle.2.circlepath"
             }
         }
@@ -47,11 +49,15 @@ struct SettingsView: View {
                 .tabItem { Label("Cache", systemImage: "externaldrive") }
                 .tag(SettingsTab.cache)
 
+            ArrSettingsView(settings: container.settings, arrService: container.arrService)
+                .tabItem { Label("Sonarr / Radarr", systemImage: "arrow.clockwise.circle") }
+                .tag(SettingsTab.arr)
+
             UpdateSettingsView(settings: container.settings, updateService: container.updateService)
                 .tabItem { Label("Updates", systemImage: "arrow.triangle.2.circlepath") }
                 .tag(SettingsTab.updates)
         }
-        .frame(width: 550, height: 400)
+        .frame(width: 600, height: 450)
     }
 }
 
@@ -429,6 +435,83 @@ struct UpdateSettingsView: View {
         .onAppear {
             hasGitHubToken = KeychainService.exists(key: .githubPAT)
         }
+    }
+}
+
+// MARK: - Sonarr / Radarr Settings
+
+struct ArrSettingsView: View {
+    @Bindable var settings: AppSettings
+    var arrService: ArrService
+    @State private var testResults: [UUID: String] = [:]
+
+    var body: some View {
+        Form {
+            Section {
+                Toggle("Delete corrupt files and trigger re-download", isOn: $settings.deleteCorruptFiles)
+                Text("When a file fails analysis (corrupt/incomplete), delete it via Sonarr/Radarr and trigger a search for re-download.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Instances") {
+                ForEach($settings.arrInstances) { $instance in
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Image(systemName: instance.type.systemImage)
+                                .foregroundStyle(instance.isEnabled ? .blue : .secondary)
+                            TextField("Name", text: $instance.name)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(maxWidth: 150)
+                            Picker("", selection: $instance.type) {
+                                ForEach(ArrType.allCases, id: \.self) { type in
+                                    Text(type.displayName).tag(type)
+                                }
+                            }
+                            .frame(width: 100)
+                            Toggle("", isOn: $instance.isEnabled)
+                                .labelsHidden()
+                            Button(role: .destructive) {
+                                settings.arrInstances.removeAll { $0.id == instance.id }
+                            } label: {
+                                Image(systemName: "trash")
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        HStack {
+                            TextField("URL (e.g. http://localhost:8989)", text: $instance.url)
+                                .textFieldStyle(.roundedBorder)
+                            SecureField("API Key", text: $instance.apiKey)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 200)
+                            Button("Test") {
+                                Task {
+                                    let result = await arrService.testConnection(
+                                        baseURL: instance.baseURL,
+                                        apiKey: instance.apiKey
+                                    )
+                                    testResults[instance.id] = result.success
+                                        ? "Connected — \(result.message)"
+                                        : result.message
+                                }
+                            }
+                        }
+                        if let result = testResults[instance.id] {
+                            Text(result)
+                                .font(.caption)
+                                .foregroundStyle(result.hasPrefix("Connected") ? .green : .red)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+
+                Button("Add Instance") {
+                    settings.arrInstances.append(ArrInstance(name: "New Instance"))
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .padding()
     }
 }
 

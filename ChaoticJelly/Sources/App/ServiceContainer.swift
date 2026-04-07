@@ -20,6 +20,7 @@ final class ServiceContainer {
     let pipeline: ProcessingPipeline
     let jobManager: JobManager
     let updateService: UpdateService
+    let arrService: ArrService
 
     init(modelContext: ModelContext) {
         let settings = AppSettings()
@@ -65,10 +66,12 @@ final class ServiceContainer {
             pipeline: pipeline,
             cacheManager: cacheManager,
             logger: logger,
-            settings: settings
+            settings: settings,
+            arrService: arrService
         )
 
         let updateService = UpdateService(settings: settings, logger: logger)
+        let arrService = ArrService(settings: settings, logger: logger)
 
         self.settings = settings
         self.logger = logger
@@ -84,5 +87,6 @@ final class ServiceContainer {
         self.pipeline = pipeline
         self.jobManager = jobManager
         self.updateService = updateService
+        self.arrService = arrService
     }
 }

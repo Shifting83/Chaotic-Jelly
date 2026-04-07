@@ -12,6 +12,7 @@ struct KeychainService {
     enum KeychainKey: String {
         case githubPAT = "github-pat"
         case llmAPIKey = "llm-api-key"
+        // Sonarr/Radarr API keys are stored in ArrInstance model
     }
 
     // MARK: - Save
