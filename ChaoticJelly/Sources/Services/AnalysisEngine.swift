@@ -44,6 +44,16 @@ struct AnalysisEngine: Sendable {
             }
         }
 
+        // Jellyfin optimization: check codecs and container against target profile
+        if settings.optimizeForJellyfin {
+            let jellyfinActions = analyzeForJellyfin(
+                mediaInfo: mediaInfo,
+                profile: settings.jellyfinProfile,
+                warnings: &warnings
+            )
+            actions.append(contentsOf: jellyfinActions)
+        }
+
         let requiresProcessing = actions.contains { $0.isDestructive }
         let removedCount = actions.filter {
             if case .removeStream = $0 { return true }
@@ -158,6 +168,85 @@ struct AnalysisEngine: Sendable {
         }
 
         return actions
+    }
+
+    // MARK: - Jellyfin Optimization
+
+    private func analyzeForJellyfin(
+        mediaInfo: MediaInfo,
+        profile: JellyfinProfile,
+        warnings: inout [String]
+    ) -> [PlannedAction] {
+        var actions: [PlannedAction] = []
+
+        // Remux only: skip all transcoding
+        if profile == .remuxOnly {
+            // Check if container needs remuxing
+            let container = mediaInfo.container.lowercased()
+            let targetContainers = profile.targetContainers
+            let containerMatch = targetContainers.isEmpty || targetContainers.contains(where: { container.contains($0) })
+            if !containerMatch {
+                actions.append(.remuxContainer(from: mediaInfo.container, to: "mkv"))
+            }
+            return actions
+        }
+
+        let targetVideoCodecs = profile.targetVideoCodecs
+        let targetAudioCodecs = profile.targetAudioCodecs
+        let targetContainers = profile.targetContainers
+
+        // Check video streams
+        for stream in mediaInfo.videoStreams {
+            let codec = stream.codec.lowercased()
+            let codecMatch = targetVideoCodecs.isEmpty || targetVideoCodecs.contains(where: { codecMatches(codec, target: $0) })
+            if !codecMatch {
+                // Need to transcode video to the first target codec
+                let targetCodec = targetVideoCodecs.first ?? "h264"
+                actions.append(.transcodeVideo(index: stream.index, codec: targetCodec, preset: "medium", crf: 20))
+                warnings.append("Video stream \(stream.index): \(codec) not in Jellyfin profile, will transcode to \(targetCodec)")
+            }
+        }
+
+        // Check audio streams (only kept/English ones)
+        for stream in mediaInfo.audioStreams {
+            let codec = stream.codec.lowercased()
+            let codecMatch = targetAudioCodecs.isEmpty || targetAudioCodecs.contains(where: { codecMatches(codec, target: $0) })
+            if !codecMatch {
+                let targetCodec = targetAudioCodecs.first ?? "aac"
+                let channels = min(stream.channels, targetCodec == "aac" ? 2 : 6)
+                let bitrate = channels <= 2 ? 128 : 384
+                actions.append(.transcodeAudio(index: stream.index, codec: targetCodec, channels: channels, bitrate: bitrate))
+                warnings.append("Audio stream \(stream.index): \(codec) not in Jellyfin profile, will transcode to \(targetCodec)")
+            }
+        }
+
+        // Check container
+        let container = mediaInfo.container.lowercased()
+        let containerMatch = targetContainers.isEmpty || targetContainers.contains(where: { container.contains($0) })
+        if !containerMatch {
+            let targetContainer = targetContainers.first ?? "mkv"
+            actions.append(.remuxContainer(from: mediaInfo.container, to: targetContainer))
+        }
+
+        return actions
+    }
+
+    /// Check if a codec name matches a target (handles aliases like h264/avc, hevc/h265).
+    private func codecMatches(_ codec: String, target: String) -> Bool {
+        let c = codec.lowercased()
+        let t = target.lowercased()
+        if c == t { return true }
+        // H.264 aliases
+        if Set([c, t]).isSubset(of: ["h264", "avc", "avc1"]) { return true }
+        // H.265 aliases
+        if Set([c, t]).isSubset(of: ["hevc", "h265", "hev1", "hvc1"]) { return true }
+        // AAC aliases
+        if Set([c, t]).isSubset(of: ["aac", "aac_latm"]) { return true }
+        // AC3 aliases
+        if Set([c, t]).isSubset(of: ["ac3", "ac-3", "a_ac3"]) { return true }
+        // EAC3 aliases
+        if Set([c, t]).isSubset(of: ["eac3", "ec-3", "e-ac-3"]) { return true }
+        return false
     }
 
     // MARK: - Language Matching
