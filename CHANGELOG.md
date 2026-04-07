@@ -215,3 +215,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix in-place update download for private repos (#15) (4101b38)
 
 [0.3.19]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.19
+
+## [0.3.20] - 2026-04-07
+
+### Changes
+- Fix: pipeline mode skipping all processing (#16) (cd6096c)
+
+[0.3.20]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.20
