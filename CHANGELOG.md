@@ -229,3 +229,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Extend local copy probe fallback to all video formats (#17) (39e22e2)
 
 [0.3.21]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.21
+
+## [0.3.22] - 2026-04-07
+
+### Changes
+- Clean up backup files after success, default backups off (#18) (bbc192e)
+
+[0.3.22]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.22
