@@ -15,42 +15,57 @@ actor FFprobeService {
     }
 
     /// Probe a media file and return parsed MediaInfo.
+    /// Retries on transient failures (network shares, locked files).
     func probe(fileURL: URL) async throws -> MediaInfo {
         let ffprobePath = try await toolLocator.path(for: .ffprobe)
         let filePath = fileURL.path
+        let isNetworkPath = filePath.hasPrefix("/Volumes/") || filePath.hasPrefix("/mnt/")
 
         // Verify file is accessible before probing
         guard FileManager.default.isReadableFile(atPath: filePath) else {
             throw FFprobeError.fileNotFound(filePath)
         }
 
-        // We only need stream metadata (codecs, languages, track layout),
-        // not deep content analysis. Use minimal probe settings for speed.
-        let arguments = [
-            "-v", "quiet",
-            "-print_format", "json",
-            "-show_format",
-            "-show_streams",
-            "-analyzeduration", "2000000",   // 2s — enough for stream detection
-            "-probesize", "2000000",         // 2MB — enough for container headers
-            filePath
-        ]
+        let maxAttempts = isNetworkPath ? 3 : 2
+        let baseTimeout: TimeInterval = isNetworkPath ? 90 : 60
+        var lastError: Error?
 
-        let result: ProcessResult
-        do {
-            result = try await processRunner.runOrThrow(
-                executablePath: ffprobePath,
-                arguments: arguments,
-                timeout: 60  // 1 min timeout — if it takes longer, something is wrong
-            )
-        } catch {
-            await logger.logError("ffprobe failed for \(fileURL.lastPathComponent): \(error.localizedDescription)")
-            throw error
+        for attempt in 1...maxAttempts {
+            // Use progressively larger probe settings on retry
+            let analyzeDuration = attempt == 1 ? "2000000" : "10000000"
+            let probeSize = attempt == 1 ? "2000000" : "10000000"
+
+            let arguments = [
+                "-v", "quiet",
+                "-print_format", "json",
+                "-show_format",
+                "-show_streams",
+                "-analyzeduration", analyzeDuration,
+                "-probesize", probeSize,
+                filePath
+            ]
+
+            do {
+                let result = try await processRunner.runOrThrow(
+                    executablePath: ffprobePath,
+                    arguments: arguments,
+                    timeout: baseTimeout * Double(attempt)
+                )
+
+                await logger.logDiagnostic("ffprobe completed in \(String(format: "%.1f", result.duration))s for \(fileURL.lastPathComponent)")
+                return try parseProbeOutput(json: result.stdout, filePath: filePath)
+            } catch {
+                lastError = error
+                if attempt < maxAttempts {
+                    let delay = Double(attempt) * 2.0
+                    await logger.logWarning("ffprobe attempt \(attempt)/\(maxAttempts) failed for \(fileURL.lastPathComponent), retrying in \(Int(delay))s...")
+                    try? await Task.sleep(for: .seconds(delay))
+                }
+            }
         }
 
-        await logger.logDiagnostic("ffprobe completed in \(String(format: "%.1f", result.duration))s for \(fileURL.lastPathComponent)")
-
-        return try parseProbeOutput(json: result.stdout, filePath: filePath)
+        await logger.logError("ffprobe failed after \(maxAttempts) attempts for \(fileURL.lastPathComponent): \(lastError?.localizedDescription ?? "unknown")")
+        throw lastError!
     }
 
     // MARK: - Parsing
