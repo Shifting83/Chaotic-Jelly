@@ -19,21 +19,34 @@ actor FFprobeService {
         let ffprobePath = try await toolLocator.path(for: .ffprobe)
         let filePath = fileURL.path
 
+        // Verify file is accessible before probing
+        guard FileManager.default.isReadableFile(atPath: filePath) else {
+            throw FFprobeError.fileNotFound(filePath)
+        }
+
         let arguments = [
             "-v", "quiet",
             "-print_format", "json",
             "-show_format",
             "-show_streams",
+            "-analyzeduration", "10000000",  // 10s max analyze (helps with network files)
+            "-probesize", "10000000",        // 10MB probe size
             filePath
         ]
 
-        await logger.logDiagnostic("Running ffprobe: \(ffprobePath) \(arguments.joined(separator: " "))")
+        await logger.logDiagnostic("Running ffprobe on: \(fileURL.lastPathComponent)")
 
-        let result = try await processRunner.runOrThrow(
-            executablePath: ffprobePath,
-            arguments: arguments,
-            timeout: 120
-        )
+        let result: ProcessResult
+        do {
+            result = try await processRunner.runOrThrow(
+                executablePath: ffprobePath,
+                arguments: arguments,
+                timeout: 300  // 5 min timeout for network share files
+            )
+        } catch {
+            await logger.logError("ffprobe failed for \(fileURL.lastPathComponent): \(error.localizedDescription)")
+            throw error
+        }
 
         await logger.logDiagnostic("ffprobe completed in \(String(format: "%.1f", result.duration))s for \(fileURL.lastPathComponent)")
 
