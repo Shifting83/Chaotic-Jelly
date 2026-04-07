@@ -264,6 +264,7 @@ jobs:
 
           # Inject the .icns into the app bundle in case asset catalog didn't compile it
           RESOURCES_DIR="$PROJECT_DIR/build/Release/Chaotic Jelly.app/Contents/Resources"
+          mkdir -p "$RESOURCES_DIR"
           cp "$RUNNER_TEMP/AppIcon.icns" "$RESOURCES_DIR/AppIcon.icns"
           echo "Injected AppIcon.icns into app bundle"
 
