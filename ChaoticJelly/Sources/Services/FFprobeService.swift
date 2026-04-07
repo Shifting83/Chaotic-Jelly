@@ -84,12 +84,13 @@ actor FFprobeService {
 
         await logger.logError("ffprobe failed after \(maxAttempts) attempts for \(fileURL.lastPathComponent): \(lastError?.localizedDescription ?? "unknown")")
 
-        // Last resort for MP4 on network: copy a partial file locally and probe that.
-        // MP4 moov atom is typically at the start or end, so grab both.
-        if isNetworkPath && isMp4Like && fileSize > 0 {
-            await logger.logInfo("Attempting local partial copy probe for \(fileURL.lastPathComponent)...")
+        // Last resort for network files: copy partially (or fully if small) to
+        // local disk and probe there. Works for any format — MKV metadata is at
+        // the start, MP4 moov can be at start or end.
+        if isNetworkPath && fileSize > 0 {
+            await logger.logInfo("Attempting local copy probe for \(fileURL.lastPathComponent)...")
             do {
-                return try await probeWithPartialCopy(fileURL: fileURL, fileSize: fileSize, ffprobePath: ffprobePath)
+                return try await probeWithPartialCopy(fileURL: fileURL, fileSize: fileSize, ffprobePath: ffprobePath, isMp4Like: isMp4Like)
             } catch {
                 await logger.logError("Partial copy probe also failed for \(fileURL.lastPathComponent): \(error.localizedDescription)")
             }
@@ -98,23 +99,22 @@ actor FFprobeService {
         throw lastError!
     }
 
-    /// Copy the first and last chunks of a file locally and probe the partial copy.
-    /// This works because MP4 moov atoms are at the start or end of the file.
-    private func probeWithPartialCopy(fileURL: URL, fileSize: Int64, ffprobePath: String) async throws -> MediaInfo {
+    /// Copy the file (or its header/footer) locally and probe the local copy.
+    /// MKV metadata is at the front, MP4 moov can be at start or end.
+    private func probeWithPartialCopy(fileURL: URL, fileSize: Int64, ffprobePath: String, isMp4Like: Bool = false) async throws -> MediaInfo {
         let chunkSize: Int64 = 20 * 1_048_576  // 20 MB
         let tempDir = FileManager.default.temporaryDirectory
-        let tempFile = tempDir.appendingPathComponent(".chaotic-probe-\(UUID().uuidString).mp4")
+        let ext = fileURL.pathExtension.lowercased()
+        let tempFile = tempDir.appendingPathComponent(".chaotic-probe-\(UUID().uuidString).\(ext)")
 
         defer {
             try? FileManager.default.removeItem(at: tempFile)
         }
 
-        // Copy the entire file if it's small enough, otherwise just the bookends
+        // Copy the entire file if it's small enough, otherwise partial copy
         if fileSize <= chunkSize * 3 {
-            // File is small enough to copy entirely
             try FileManager.default.copyItem(at: fileURL, to: tempFile)
         } else {
-            // Copy first 20MB + last 20MB into a temp file
             let sourceHandle = try FileHandle(forReadingFrom: fileURL)
             defer { try? sourceHandle.close() }
 
@@ -122,14 +122,16 @@ actor FFprobeService {
             let destHandle = try FileHandle(forWritingTo: tempFile)
             defer { try? destHandle.close() }
 
-            // Read first chunk
+            // Read first chunk (all formats have headers here)
             let firstChunk = sourceHandle.readData(ofLength: Int(chunkSize))
             destHandle.write(firstChunk)
 
-            // Seek to end and read last chunk
-            sourceHandle.seek(toFileOffset: UInt64(fileSize - chunkSize))
-            let lastChunk = sourceHandle.readData(ofLength: Int(chunkSize))
-            destHandle.write(lastChunk)
+            // For MP4, also grab the end (moov atom may be there)
+            if isMp4Like {
+                sourceHandle.seek(toFileOffset: UInt64(fileSize - chunkSize))
+                let lastChunk = sourceHandle.readData(ofLength: Int(chunkSize))
+                destHandle.write(lastChunk)
+            }
         }
 
         let arguments = [
