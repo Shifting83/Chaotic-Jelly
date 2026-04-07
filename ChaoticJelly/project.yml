@@ -50,6 +50,8 @@ targets:
         CFBundleExecutable: Chaotic Jelly
         LSMinimumSystemVersion: "14.0"
         NSMainStoryboardFile: ""
+        CFBundleIconFile: AppIcon
+        CFBundleIconName: AppIcon
         LSApplicationCategoryType: public.app-category.utilities
         NSHumanReadableCopyright: "Copyright 2026 Chaotic Jelly"
         CFBundleHelpBookName: Chaotic Jelly Help
