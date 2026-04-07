@@ -147,29 +147,12 @@ jobs:
 
           cat release_notes.md
 
-          python3 -c "
-import sys
-version = '${VERSION}'
-date = '${DATE}'
-commits = '''${COMMITS}'''
-entry = f'## [{version}] - {date}\n\n### Changes\n{commits}\n'
-try:
-    with open('CHANGELOG.md', 'r') as f:
-        content = f.read()
-    marker = '## [Unreleased]'
-    idx = content.find(marker)
-    if idx >= 0:
-        nl = content.find('\\n', idx)
-        if nl < 0: nl = len(content)
-        new_content = content[:nl] + '\\n\\n' + entry + content[nl:]
-    else:
-        new_content = entry + '\\n' + content
-    with open('CHANGELOG.md', 'w') as f:
-        f.write(new_content)
-except Exception as e:
-    print(f'Warning: CHANGELOG update failed: {e}')
-" || echo "Warning: CHANGELOG.md update failed, continuing"
-
+          echo "" >> CHANGELOG.md
+          echo "## [${VERSION}] - ${DATE}" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "### Changes" >> CHANGELOG.md
+          echo "$COMMITS" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
           echo "[${VERSION}]: https://github.com/${{ github.repository }}/releases/tag/v${VERSION}" >> CHANGELOG.md
 
       - name: Install XcodeGen
