@@ -104,34 +104,69 @@ final class JobManager {
 
         let jobSettings = decodeJobSettings(job)
         let files = job.files.filter { $0.fileStatus == .pending }
+        // Analysis is read-only (ffprobe), so we can run more concurrently
+        // than the processing step which does heavy I/O.
+        let concurrency = max(settings.maxConcurrentFiles * 4, 8)
+        var completed = 0
 
-        for (index, file) in files.enumerated() {
-            file.transition(to: .analyzing)
+        // Process files in concurrent batches
+        var index = 0
+        while index < files.count {
+            let batchEnd = min(index + concurrency, files.count)
+            let batch = Array(files[index..<batchEnd])
 
-            do {
-                let fileURL = URL(fileURLWithPath: file.fullPath)
-                let mediaInfo = try await ffprobeService.probe(fileURL: fileURL)
-                file.mediaInfo = mediaInfo
-
-                let analysis = analysisEngine.analyze(mediaInfo: mediaInfo, settings: jobSettings)
-                file.analysisResult = analysis
-
-                if analysis.requiresProcessing {
-                    file.transition(to: .analyzed)
-                } else {
-                    file.transition(to: .skipped)
-                }
-
-                file.warnings = analysis.warnings
-            } catch {
-                file.transition(to: .failed)
-                file.errorMessage = error.localizedDescription
-                job.errorCount += 1
-                await logger.logError("Analysis failed for \(file.fileName): \(error.localizedDescription)")
+            // Mark batch as analyzing
+            for file in batch {
+                file.transition(to: .analyzing)
             }
 
-            onProgress?(index + 1, files.count)
+            // Run ffprobe concurrently for the batch
+            let results = await withTaskGroup(of: (Int, Result<(MediaInfo, FileAnalysisResult), Error>).self) { group in
+                for (offset, file) in batch.enumerated() {
+                    let fileURL = URL(fileURLWithPath: file.fullPath)
+                    group.addTask { [ffprobeService, analysisEngine] in
+                        do {
+                            let mediaInfo = try await ffprobeService.probe(fileURL: fileURL)
+                            let analysis = analysisEngine.analyze(mediaInfo: mediaInfo, settings: jobSettings)
+                            return (offset, .success((mediaInfo, analysis)))
+                        } catch {
+                            return (offset, .failure(error))
+                        }
+                    }
+                }
+
+                var collected = [(Int, Result<(MediaInfo, FileAnalysisResult), Error>)]()
+                for await result in group {
+                    collected.append(result)
+                }
+                return collected
+            }
+
+            // Apply results back to file entries on the main actor
+            for (offset, result) in results {
+                let file = batch[offset]
+                switch result {
+                case .success(let (mediaInfo, analysis)):
+                    file.mediaInfo = mediaInfo
+                    file.analysisResult = analysis
+                    file.warnings = analysis.warnings
+                    if analysis.requiresProcessing {
+                        file.transition(to: .analyzed)
+                    } else {
+                        file.transition(to: .skipped)
+                    }
+                case .failure(let error):
+                    file.transition(to: .failed)
+                    file.errorMessage = error.localizedDescription
+                    job.errorCount += 1
+                    await logger.logError("Analysis failed for \(file.fileName): \(error.localizedDescription)")
+                }
+                completed += 1
+                onProgress?(completed, files.count)
+            }
+
             try? modelContext.save()
+            index = batchEnd
         }
 
         job.transition(to: .reviewing)
