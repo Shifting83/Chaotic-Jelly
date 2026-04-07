@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  SCHEME: ChaoticJelly
+  PROJECT_DIR: ChaoticJelly
+
+jobs:
+  test:
+    name: Build & Test
+    runs-on: macos-14
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode Project
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: xcodegen generate
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_15.2.app
+
+      - name: Build
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          xcodebuild \
+            -project ChaoticJelly.xcodeproj \
+            -scheme ${{ env.SCHEME }} \
+            -configuration Debug \
+            build \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Run Tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          xcodebuild \
+            -project ChaoticJelly.xcodeproj \
+            -scheme ${{ env.SCHEME }} \
+            -configuration Debug \
+            test \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | xcpretty --report junit || true

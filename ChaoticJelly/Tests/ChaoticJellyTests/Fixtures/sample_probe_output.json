@@ -1,0 +1,122 @@
+{
+    "streams": [
+        {
+            "index": 0,
+            "codec_name": "hevc",
+            "codec_long_name": "H.265 / HEVC (High Efficiency Video Coding)",
+            "codec_type": "video",
+            "profile": "Main 10",
+            "width": 3840,
+            "height": 2160,
+            "r_frame_rate": "24000/1001",
+            "pix_fmt": "yuv420p10le",
+            "bit_rate": "15000000",
+            "disposition": { "default": 1, "forced": 0 },
+            "tags": { "language": "eng" }
+        },
+        {
+            "index": 1,
+            "codec_name": "truehd",
+            "codec_long_name": "TrueHD",
+            "codec_type": "audio",
+            "channels": 8,
+            "channel_layout": "7.1",
+            "sample_rate": "48000",
+            "bit_rate": "4800000",
+            "disposition": { "default": 1, "forced": 0 },
+            "tags": { "language": "eng", "title": "English TrueHD 7.1" }
+        },
+        {
+            "index": 2,
+            "codec_name": "ac3",
+            "codec_long_name": "ATSC A/52A (AC-3)",
+            "codec_type": "audio",
+            "channels": 6,
+            "channel_layout": "5.1",
+            "sample_rate": "48000",
+            "bit_rate": "640000",
+            "disposition": { "default": 0, "forced": 0 },
+            "tags": { "language": "eng", "title": "English AC3 5.1 (Compatibility)" }
+        },
+        {
+            "index": 3,
+            "codec_name": "ac3",
+            "codec_long_name": "ATSC A/52A (AC-3)",
+            "codec_type": "audio",
+            "channels": 6,
+            "channel_layout": "5.1",
+            "sample_rate": "48000",
+            "bit_rate": "640000",
+            "disposition": { "default": 0, "forced": 0 },
+            "tags": { "language": "fre", "title": "French AC3 5.1" }
+        },
+        {
+            "index": 4,
+            "codec_name": "ac3",
+            "codec_long_name": "ATSC A/52A (AC-3)",
+            "codec_type": "audio",
+            "channels": 6,
+            "channel_layout": "5.1",
+            "sample_rate": "48000",
+            "bit_rate": "640000",
+            "disposition": { "default": 0, "forced": 0 },
+            "tags": { "language": "spa", "title": "Spanish AC3 5.1" }
+        },
+        {
+            "index": 5,
+            "codec_name": "hdmv_pgs_subtitle",
+            "codec_long_name": "HDMV Presentation Graphic Stream subtitles",
+            "codec_type": "subtitle",
+            "disposition": { "default": 0, "forced": 0 },
+            "tags": { "language": "eng", "title": "English" }
+        },
+        {
+            "index": 6,
+            "codec_name": "hdmv_pgs_subtitle",
+            "codec_long_name": "HDMV Presentation Graphic Stream subtitles",
+            "codec_type": "subtitle",
+            "disposition": { "default": 0, "forced": 1 },
+            "tags": { "language": "eng", "title": "English (Forced)" }
+        },
+        {
+            "index": 7,
+            "codec_name": "hdmv_pgs_subtitle",
+            "codec_long_name": "HDMV Presentation Graphic Stream subtitles",
+            "codec_type": "subtitle",
+            "disposition": { "default": 0, "forced": 0 },
+            "tags": { "language": "fre", "title": "French" }
+        },
+        {
+            "index": 8,
+            "codec_name": "hdmv_pgs_subtitle",
+            "codec_long_name": "HDMV Presentation Graphic Stream subtitles",
+            "codec_type": "subtitle",
+            "disposition": { "default": 0, "forced": 0, "hearing_impaired": 1 },
+            "tags": { "language": "eng", "title": "English (SDH)" }
+        },
+        {
+            "index": 9,
+            "codec_name": "subrip",
+            "codec_long_name": "SubRip subtitle",
+            "codec_type": "subtitle",
+            "disposition": { "default": 0, "forced": 0 },
+            "tags": { "language": "spa", "title": "Spanish" }
+        },
+        {
+            "index": 10,
+            "codec_name": "subrip",
+            "codec_long_name": "SubRip subtitle",
+            "codec_type": "subtitle",
+            "disposition": { "default": 0, "forced": 0 },
+            "tags": { "language": "ger", "title": "German" }
+        }
+    ],
+    "format": {
+        "filename": "/Volumes/Media/Movies/SampleMovie (2024)/SampleMovie.mkv",
+        "format_name": "matroska,webm",
+        "format_long_name": "Matroska / WebM",
+        "duration": "8640.123000",
+        "size": "42949672960",
+        "bit_rate": "39768032"
+    }
+}

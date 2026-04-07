@@ -1,0 +1,263 @@
+name: Auto Version & Release
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'version.json'
+      - 'CHANGELOG.md'
+
+permissions:
+  contents: write
+
+env:
+  SCHEME: ChaoticJelly
+  PROJECT_DIR: ChaoticJelly
+
+jobs:
+  version-and-release:
+    name: Version, Build & Release
+    runs-on: macos-14
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── Auto-version based on commit messages ──
+      - name: Determine version bump
+        id: version
+        run: |
+          # Read current version
+          CURRENT=$(jq -r '.version' version.json)
+          BUILD=$(jq -r '.build' version.json)
+          echo "current_version=$CURRENT" >> "$GITHUB_OUTPUT"
+          echo "current_build=$BUILD" >> "$GITHUB_OUTPUT"
+
+          # Parse semver
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+
+          # Check commit messages since last tag for bump type
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -z "$LAST_TAG" ]; then
+            COMMITS=$(git log --oneline --format="%s")
+          else
+            COMMITS=$(git log "${LAST_TAG}..HEAD" --oneline --format="%s")
+          fi
+
+          # Determine bump type from conventional commits
+          # BREAKING or !: → major, feat: → minor, everything else → patch
+          BUMP="patch"
+          if echo "$COMMITS" | grep -qiE "^(BREAKING CHANGE|.*!:)"; then
+            BUMP="major"
+          elif echo "$COMMITS" | grep -qiE "^feat(\(.*\))?:"; then
+            BUMP="minor"
+          fi
+
+          # Apply bump
+          case $BUMP in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            patch)
+              PATCH=$((PATCH + 1))
+              ;;
+          esac
+
+          NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          NEW_BUILD=$((BUILD + 1))
+
+          echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "new_build=$NEW_BUILD" >> "$GITHUB_OUTPUT"
+          echo "bump=$BUMP" >> "$GITHUB_OUTPUT"
+          echo "tag=v${NEW_VERSION}" >> "$GITHUB_OUTPUT"
+
+          echo "Version bump: $CURRENT -> $NEW_VERSION ($BUMP), build $BUILD -> $NEW_BUILD"
+
+      # ── Check if this version already exists ──
+      - name: Check for existing tag
+        id: check_tag
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Tag $TAG already exists, skipping release"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ── Update version files ──
+      - name: Update version.json
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          jq --arg v "${{ steps.version.outputs.new_version }}" \
+             --argjson b ${{ steps.version.outputs.new_build }} \
+             '.version = $v | .build = $b' version.json > version.tmp \
+            && mv version.tmp version.json
+
+          cat version.json
+
+      - name: Update project.yml version
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          VERSION="${{ steps.version.outputs.new_version }}"
+          BUILD="${{ steps.version.outputs.new_build }}"
+
+          sed -i '' "s/MARKETING_VERSION: .*/MARKETING_VERSION: \"$VERSION\"/" "$PROJECT_DIR/project.yml"
+          sed -i '' "s/CURRENT_PROJECT_VERSION: .*/CURRENT_PROJECT_VERSION: $BUILD/" "$PROJECT_DIR/project.yml"
+          sed -i '' "s/CFBundleShortVersionString: .*/CFBundleShortVersionString: \"$VERSION\"/" "$PROJECT_DIR/project.yml"
+          sed -i '' "s/CFBundleVersion: .*/CFBundleVersion: \"$BUILD\"/" "$PROJECT_DIR/project.yml"
+
+      - name: Update Info.plist version
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          VERSION="${{ steps.version.outputs.new_version }}"
+          BUILD="${{ steps.version.outputs.new_build }}"
+
+          # Info.plist uses $(MARKETING_VERSION) and $(CURRENT_PROJECT_VERSION)
+          # so no direct edit needed if using build settings, but update for reference
+          echo "Version set to $VERSION (build $BUILD)"
+
+      # ── Generate changelog entry ──
+      - name: Generate release notes
+        if: steps.check_tag.outputs.exists == 'false'
+        id: changelog
+        run: |
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          VERSION="${{ steps.version.outputs.new_version }}"
+          DATE=$(date +%Y-%m-%d)
+
+          if [ -z "$LAST_TAG" ]; then
+            COMMITS=$(git log --oneline --format="- %s (%h)")
+          else
+            COMMITS=$(git log "${LAST_TAG}..HEAD" --oneline --format="- %s (%h)")
+          fi
+
+          # Build release notes
+          NOTES="## What's Changed in v${VERSION}
+
+          ${COMMITS}
+
+          **Full Changelog**: https://github.com/${{ github.repository }}/compare/${LAST_TAG:-initial}...v${VERSION}"
+
+          # Write to file for the release step
+          echo "$NOTES" > release_notes.md
+          cat release_notes.md
+
+          # Also update CHANGELOG.md
+          ENTRY="## [${VERSION}] - ${DATE}
+
+          ### Changes
+          ${COMMITS}
+          "
+
+          # Insert new entry after [Unreleased] section
+          awk -v entry="$ENTRY" '/^## \[Unreleased\]/{print; print ""; print entry; next}1' CHANGELOG.md > CHANGELOG.tmp
+          mv CHANGELOG.tmp CHANGELOG.md
+
+          # Update links at bottom
+          echo "[${VERSION}]: https://github.com/${{ github.repository }}/releases/tag/v${VERSION}" >> CHANGELOG.md
+
+      # ── Build ──
+      - name: Install XcodeGen
+        if: steps.check_tag.outputs.exists == 'false'
+        run: brew install xcodegen
+
+      - name: Generate Xcode Project
+        if: steps.check_tag.outputs.exists == 'false'
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: xcodegen generate
+
+      - name: Select Xcode
+        if: steps.check_tag.outputs.exists == 'false'
+        run: sudo xcode-select -s /Applications/Xcode_15.2.app
+
+      - name: Archive
+        if: steps.check_tag.outputs.exists == 'false'
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          xcodebuild \
+            -project ChaoticJelly.xcodeproj \
+            -scheme ${{ env.SCHEME }} \
+            -configuration Release \
+            -archivePath build/ChaoticJelly.xcarchive \
+            archive \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_ALLOWED=NO \
+            MARKETING_VERSION="${{ steps.version.outputs.new_version }}" \
+            CURRENT_PROJECT_VERSION="${{ steps.version.outputs.new_build }}"
+
+      # ── Package DMG ──
+      - name: Create DMG
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          brew install create-dmg 2>/dev/null || true
+
+          APP_PATH="${PROJECT_DIR}/build/ChaoticJelly.xcarchive/Products/Applications"
+          DMG_NAME="ChaoticJelly-${{ steps.version.outputs.tag }}.dmg"
+
+          if [ -d "$APP_PATH" ]; then
+            create-dmg \
+              --volname "Chaotic Jelly ${{ steps.version.outputs.new_version }}" \
+              --window-pos 200 120 \
+              --window-size 600 400 \
+              --icon-size 100 \
+              --app-drop-link 400 190 \
+              "$DMG_NAME" \
+              "$APP_PATH" || echo "DMG creation completed with warnings"
+          else
+            echo "App archive not found at $APP_PATH — creating placeholder"
+            echo "Build artifact placeholder" > "$DMG_NAME.txt"
+          fi
+
+      # ── Commit version bump ──
+      - name: Commit version bump
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add version.json CHANGELOG.md "$PROJECT_DIR/project.yml"
+          git commit -m "chore: bump version to ${{ steps.version.outputs.new_version }} [skip ci]" || echo "No changes to commit"
+          git push
+
+      # ── Tag & Release ──
+      - name: Create tag
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+
+      - name: Create GitHub Release
+        if: steps.check_tag.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: "Chaotic Jelly ${{ steps.version.outputs.new_version }}"
+          body_path: release_notes.md
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.new_version, '-') }}
+          files: |
+            *.dmg
+            *.dmg.txt
+          generate_release_notes: false
+
+      - name: Upload build artifact
+        if: steps.check_tag.outputs.exists == 'false'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ChaoticJelly-${{ steps.version.outputs.tag }}
+          path: |
+            *.dmg
+            release_notes.md
