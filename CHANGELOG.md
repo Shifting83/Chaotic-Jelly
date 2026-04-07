@@ -58,3 +58,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fix: build runnable .app with ad-hoc signing instead of unsigned archive (fcdadbf)
 
 [0.2.1]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.2.1
+
+## [0.2.2] - 2026-04-07
+
+### Changes
+- fix: separate build/package/DMG steps, remove silent failure fallback (6f63831)
+
+[0.2.2]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.2.2
