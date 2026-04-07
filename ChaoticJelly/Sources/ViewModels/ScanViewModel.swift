@@ -32,8 +32,9 @@ final class ScanViewModel {
         panel.message = "Select a folder to scan for video files"
         panel.prompt = "Scan"
 
-        if panel.runModal() == .OK {
-            selectedFolderURL = panel.url
+        if panel.runModal() == .OK, let url = panel.url {
+            selectedFolderURL = url
+            BookmarkStore.shared.saveBookmark(for: url)
         }
     }
 

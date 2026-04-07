@@ -20,8 +20,6 @@
 	<string>1</string>
 	<key>HPDBookAccessPath</key>
 	<string>index.html</string>
-	<key>HPDBookIndexPath</key>
-	<string>search.helpindex</string>
 	<key>HPDBookTitle</key>
 	<string>Chaotic Jelly Help</string>
 	<key>HPDBookType</key>

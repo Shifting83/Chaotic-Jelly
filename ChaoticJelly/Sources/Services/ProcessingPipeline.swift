@@ -41,6 +41,12 @@ actor ProcessingPipeline {
     ) async throws -> FileProcessingResult {
         guard !isCancelled else { throw PipelineError.cancelled }
 
+        // Ensure we have security-scoped access to the source folder
+        let scopedURL = BookmarkStore.shared.startAccessing(path: sourceURL.path)
+        defer {
+            if let scopedURL { BookmarkStore.shared.stopAccessing(scopedURL) }
+        }
+
         let startTime = Date()
 
         await logger.logInfo("Processing: \(sourceURL.lastPathComponent)")
@@ -224,6 +230,12 @@ actor ProcessingPipeline {
     // MARK: - File Replacement
 
     private func replaceOriginal(source: URL, destination: URL, createBackup: Bool) async throws {
+        // Resolve security-scoped bookmark to regain access to the destination folder
+        let scopedURL = BookmarkStore.shared.startAccessing(path: destination.path)
+        defer {
+            if let scopedURL { BookmarkStore.shared.stopAccessing(scopedURL) }
+        }
+
         let fm = FileManager.default
 
         // Create backup if requested
@@ -236,34 +248,30 @@ actor ProcessingPipeline {
             await logger.logDiagnostic("Created backup: \(backupURL.lastPathComponent)")
         }
 
-        // Atomic replacement: copy to temp on same volume, then rename
-        let destDir = destination.deletingLastPathComponent()
-        let tempName = ".\(destination.lastPathComponent).chaotic-tmp"
-        let tempURL = destDir.appendingPathComponent(tempName)
-
-        // Clean up any previous temp file
-        if fm.fileExists(atPath: tempURL.path) {
-            try fm.removeItem(at: tempURL)
-        }
-
-        // Copy processed file to same volume as destination
-        try fm.copyItem(at: source, to: tempURL)
-
-        // Atomic rename
+        // Use replaceItemAt for atomic replacement — handles cross-volume
+        // copies and preserves the destination's filesystem permissions.
         do {
-            // Remove original, rename temp to original name
-            try fm.removeItem(at: destination)
-            try fm.moveItem(at: tempURL, to: destination)
+            _ = try fm.replaceItemAt(destination, withItemAt: source)
         } catch {
-            // Clean up temp on failure
-            try? fm.removeItem(at: tempURL)
-            throw error
-        }
+            // Fallback: manual copy → remove → rename
+            await logger.logDiagnostic("replaceItemAt failed, trying manual replacement: \(error.localizedDescription)")
+            let destDir = destination.deletingLastPathComponent()
+            let tempName = ".\(destination.lastPathComponent).chaotic-tmp"
+            let tempURL = destDir.appendingPathComponent(tempName)
 
-        // Try to preserve original timestamps
-        let attrs = try? fm.attributesOfItem(atPath: destination.path)
-        if let modDate = attrs?[.modificationDate] as? Date {
-            try? fm.setAttributes([.modificationDate: modDate], ofItemAtPath: destination.path)
+            if fm.fileExists(atPath: tempURL.path) {
+                try? fm.removeItem(at: tempURL)
+            }
+
+            try fm.copyItem(at: source, to: tempURL)
+
+            do {
+                try fm.removeItem(at: destination)
+                try fm.moveItem(at: tempURL, to: destination)
+            } catch {
+                try? fm.removeItem(at: tempURL)
+                throw error
+            }
         }
 
         await logger.logDiagnostic("Replaced original: \(destination.lastPathComponent)")
