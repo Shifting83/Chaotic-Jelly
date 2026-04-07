@@ -79,13 +79,16 @@ struct ScanView: View {
                 Toggle("Skip review (scan & process immediately)", isOn: $viewModel.skipReview)
                 Toggle("Dry run (preview only, no changes)", isOn: $viewModel.isDryRun)
                     .disabled(viewModel.skipReview)
+            }
+            .frame(maxWidth: 400)
 
-                // Sonarr/Radarr instance picker (only shown when instances exist)
-                if !settings.arrInstances.isEmpty && settings.deleteCorruptFiles {
-                    Divider()
-                    Text("*arr instances for corrupt file handling:")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+            // Sonarr/Radarr instance picker
+            if !settings.arrInstances.isEmpty && settings.deleteCorruptFiles {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Re-download corrupt files via:")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+
                     ForEach(settings.arrInstances.filter(\.isEnabled)) { instance in
                         Toggle(isOn: Binding(
                             get: { viewModel.selectedArrInstanceIds.contains(instance.id) },
@@ -102,8 +105,8 @@ struct ScanView: View {
                         }
                     }
                 }
+                .frame(maxWidth: 400)
             }
-            .frame(maxWidth: 400)
 
             // Error display
             if let error = viewModel.error {
