@@ -173,29 +173,44 @@ jobs:
           fi
           xcodebuild -version
 
-      - name: Archive
+      - name: Build
         if: steps.version.outputs.skip != 'true' && steps.check_tag.outputs.exists == 'false'
         working-directory: ${{ env.PROJECT_DIR }}
         continue-on-error: true
         run: |
+          # Build a Release .app with ad-hoc signing (not archive — simpler for unsigned distribution)
           xcodebuild \
             -project ChaoticJelly.xcodeproj \
             -scheme ${{ env.SCHEME }} \
             -configuration Release \
-            -archivePath build/ChaoticJelly.xcarchive \
-            archive \
+            -derivedDataPath build/DerivedData \
             CODE_SIGN_IDENTITY="-" \
-            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_ALLOWED=YES \
+            CODE_SIGNING_REQUIRED=NO \
             MARKETING_VERSION="${{ steps.version.outputs.new_version }}" \
             CURRENT_PROJECT_VERSION="${{ steps.version.outputs.new_build }}"
+
+          # Copy the built .app to a known location
+          APP_SRC=$(find build/DerivedData -name "Chaotic Jelly.app" -type d | head -1)
+          if [ -n "$APP_SRC" ]; then
+            mkdir -p build/Release
+            cp -R "$APP_SRC" "build/Release/Chaotic Jelly.app"
+            # Ad-hoc sign so macOS doesn't treat it as damaged
+            codesign --force --deep --sign - "build/Release/Chaotic Jelly.app" || echo "Ad-hoc signing completed with warnings"
+            echo "App built at: build/Release/Chaotic Jelly.app"
+            ls -la "build/Release/"
+          else
+            echo "ERROR: Could not find built .app"
+            find build/DerivedData -name "*.app" -type d || true
+          fi
 
       - name: Create DMG
         if: steps.version.outputs.skip != 'true' && steps.check_tag.outputs.exists == 'false'
         run: |
           brew install create-dmg 2>/dev/null || true
-          APP_PATH="${PROJECT_DIR}/build/ChaoticJelly.xcarchive/Products/Applications"
+          APP_PATH="${PROJECT_DIR}/build/Release"
           DMG_NAME="ChaoticJelly-${{ steps.version.outputs.tag }}.dmg"
-          if [ -d "$APP_PATH" ]; then
+          if [ -d "$APP_PATH/Chaotic Jelly.app" ]; then
             create-dmg \
               --volname "Chaotic Jelly ${{ steps.version.outputs.new_version }}" \
               --window-pos 200 120 \
@@ -205,7 +220,7 @@ jobs:
               "$DMG_NAME" \
               "$APP_PATH" || echo "DMG creation completed with warnings"
           else
-            echo "App archive not found — creating placeholder"
+            echo "App not found at $APP_PATH — creating placeholder"
             echo "Build artifact placeholder" > "$DMG_NAME.txt"
           fi
 
