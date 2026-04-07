@@ -187,3 +187,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Retry ffprobe on transient network share failures (#11) (4b11586)
 
 [0.3.15]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.15
+
+## [0.3.16] - 2026-04-07
+
+### Changes
+- Add pipeline mode: scan and process without review (#12) (f0f6cf9)
+
+[0.3.16]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.16

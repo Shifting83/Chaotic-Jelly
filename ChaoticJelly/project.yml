@@ -14,8 +14,8 @@ settings:
     ENABLE_HARDENED_RUNTIME: YES
     CODE_SIGN_IDENTITY: "-"
     PRODUCT_BUNDLE_IDENTIFIER: com.chaoticjelly.app
-    MARKETING_VERSION: "0.3.15"
-    CURRENT_PROJECT_VERSION: 22
+    MARKETING_VERSION: "0.3.16"
+    CURRENT_PROJECT_VERSION: 23
     INFOPLIST_FILE: Resources/Info.plist
     CODE_SIGN_ENTITLEMENTS: Resources/ChaoticJelly.entitlements
 
@@ -44,8 +44,8 @@ targets:
         CFBundleName: Chaotic Jelly
         CFBundleDisplayName: Chaotic Jelly
         CFBundleIdentifier: com.chaoticjelly.app
-        CFBundleVersion: "22"
-        CFBundleShortVersionString: "0.3.15"
+        CFBundleVersion: "23"
+        CFBundleShortVersionString: "0.3.16"
         CFBundlePackageType: APPL
         CFBundleExecutable: Chaotic Jelly
         LSMinimumSystemVersion: "14.0"
