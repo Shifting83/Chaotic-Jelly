@@ -68,10 +68,19 @@ actor ScanService {
             guard supportedExtensions.contains(ext) else { continue }
 
             let fileSize = Int64(resourceValues?.fileSize ?? 0)
-            let relativePath = fileURL.path.replacingOccurrences(
-                of: folderURL.path + "/",
-                with: ""
-            )
+
+            // Build relative path by removing the base folder prefix
+            // Use standardized paths to avoid trailing slash / encoding issues
+            let basePath = folderURL.standardizedFileURL.path
+            let filePath = fileURL.standardizedFileURL.path
+            let relativePath: String
+            if filePath.hasPrefix(basePath) {
+                var rel = String(filePath.dropFirst(basePath.count))
+                if rel.hasPrefix("/") { rel = String(rel.dropFirst()) }
+                relativePath = rel
+            } else {
+                relativePath = fileURL.lastPathComponent
+            }
 
             results.append(ScannedFile(
                 url: fileURL,

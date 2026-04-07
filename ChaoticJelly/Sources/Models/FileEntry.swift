@@ -31,10 +31,10 @@ final class FileEntry {
     var fullPath: String {
         guard let job else { return relativePath }
         let base = job.sourceFolderPath
-        if base.hasSuffix("/") {
-            return base + relativePath
-        }
-        return base + "/" + relativePath
+        // Use URL-based path joining to handle edge cases correctly
+        let baseURL = URL(fileURLWithPath: base, isDirectory: true)
+        let fullURL = baseURL.appendingPathComponent(relativePath)
+        return fullURL.path
     }
 
     var mediaInfo: MediaInfo? {
