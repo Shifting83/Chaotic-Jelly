@@ -265,3 +265,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sonarr/Radarr integration for corrupt file re-download (#22) (00b52d4)
 
 [0.3.26]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.26
+
+## [0.3.27] - 2026-04-07
+
+### Changes
+- Align *arr instance picker layout in scan view (#24) (1e86840)
+
+[0.3.27]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.27
