@@ -173,3 +173,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use VideoToolbox hardware encoding for transcoding (#9) (8c1cf8a)
 
 [0.3.13]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.13
+
+## [0.3.14] - 2026-04-07
+
+### Changes
+- Faster ffprobe analysis and in-place app updates (#10) (b85867c)
+
+[0.3.14]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.14
