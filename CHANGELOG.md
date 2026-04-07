@@ -122,3 +122,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fix: add hardened runtime entitlements for external tool execution (86c731c)
 
 [0.3.6]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.6
+
+## [0.3.7] - 2026-04-07
+
+### Changes
+- Fix Help Book and file replacement permission errors (#2) (a5e0732)
+- fix: make file detail sheet scrollable for files with many streams (c5d2e59)
+
+[0.3.7]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.7
