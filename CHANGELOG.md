@@ -35,3 +35,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [Unreleased]: https://github.com/Shifting83/Chaotic-Jelly/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.1.0
+
+## [0.1.1] - 2026-04-07
+
+### Changes
+- fix: repair YAML syntax error in release workflow line 151 (098625d)
+- fix: resolve 5 remaining Swift compiler errors from CI build log (593836c)
+- fix: resolve Swift compilation errors for Xcode build (912e2d0)
+
+[0.1.1]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.1.1
