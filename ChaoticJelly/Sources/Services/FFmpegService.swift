@@ -7,11 +7,36 @@ actor FFmpegService {
     private let processRunner: ProcessRunner
     private let toolLocator: ToolLocator
     private let logger: LoggingService
+    private var videoToolboxAvailable: Bool?
 
     init(processRunner: ProcessRunner, toolLocator: ToolLocator, logger: LoggingService) {
         self.processRunner = processRunner
         self.toolLocator = toolLocator
         self.logger = logger
+    }
+
+    /// Check if VideoToolbox hardware encoding is available.
+    private func checkVideoToolbox() async -> Bool {
+        if let cached = videoToolboxAvailable { return cached }
+        do {
+            let ffmpegPath = try await toolLocator.path(for: .ffmpeg)
+            let result = try await processRunner.run(
+                executablePath: ffmpegPath,
+                arguments: ["-hide_banner", "-encoders"],
+                timeout: 10
+            )
+            let available = result.stdout.contains("h264_videotoolbox")
+            videoToolboxAvailable = available
+            if available {
+                await logger.logInfo("VideoToolbox hardware encoding available")
+            } else {
+                await logger.logInfo("VideoToolbox not available, using CPU encoding")
+            }
+            return available
+        } catch {
+            videoToolboxAvailable = false
+            return false
+        }
     }
 
     /// Build and execute an ffmpeg command based on planned actions.
@@ -23,11 +48,13 @@ actor FFmpegService {
         onProgress: (@Sendable (Double) -> Void)? = nil
     ) async throws -> ProcessResult {
         let ffmpegPath = try await toolLocator.path(for: .ffmpeg)
+        let useHW = await checkVideoToolbox()
         let arguments = buildArguments(
             inputPath: inputPath,
             outputPath: outputPath,
             actions: actions,
-            mediaInfo: mediaInfo
+            mediaInfo: mediaInfo,
+            useVideoToolbox: useHW
         )
 
         let commandString = "ffmpeg " + arguments.joined(separator: " ")
@@ -54,7 +81,8 @@ actor FFmpegService {
         inputPath: URL,
         outputPath: URL,
         actions: [PlannedAction],
-        mediaInfo: MediaInfo
+        mediaInfo: MediaInfo,
+        useVideoToolbox: Bool = false
     ) -> [String] {
         var args: [String] = [
             "-hide_banner",
@@ -105,12 +133,20 @@ actor FFmpegService {
         // Handle transcoding
         for action in transcodeVideoActions {
             if case .transcodeVideo(_, let codec, let preset, let crf) = action {
-                let encoder = codec == "hevc" ? "libx265" : "libx264"
-                codecArgs += [
-                    "-c:v", encoder,
-                    "-preset", preset,
-                    "-crf", String(crf)
-                ]
+                if useVideoToolbox {
+                    // macOS VideoToolbox hardware encoder
+                    let encoder = codec == "hevc" ? "hevc_videotoolbox" : "h264_videotoolbox"
+                    // Map CRF roughly to VT quality (lower CRF = higher quality)
+                    let quality = max(1, min(100, 100 - crf * 3))
+                    codecArgs += ["-c:v", encoder, "-q:v", String(quality)]
+                    if codec == "hevc" {
+                        codecArgs += ["-tag:v", "hvc1"]
+                    }
+                } else {
+                    // CPU software encoder fallback
+                    let encoder = codec == "hevc" ? "libx265" : "libx264"
+                    codecArgs += ["-c:v", encoder, "-preset", preset, "-crf", String(crf)]
+                }
             }
         }
 
