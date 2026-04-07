@@ -220,8 +220,8 @@ struct FileDetailSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // Header
+        VStack(alignment: .leading, spacing: 0) {
+            // Header (pinned, not scrollable)
             HStack {
                 Text(file.fileName)
                     .font(.title3)
@@ -229,19 +229,23 @@ struct FileDetailSheet: View {
                 Spacer()
                 Button("Done") { dismiss() }
             }
+            .padding()
 
             Divider()
 
-            // File info
-            GroupBox("File Info") {
-                VStack(alignment: .leading, spacing: 6) {
-                    InfoRow(label: "Path", value: file.fullPath)
-                    InfoRow(label: "Size", value: file.originalSize.formattedFileSize)
-                    InfoRow(label: "Container", value: file.fileExtension.uppercased())
-                    InfoRow(label: "Status", value: file.fileStatus.displayName)
-                }
-                .padding(4)
-            }
+            // Scrollable content
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    // File info
+                    GroupBox("File Info") {
+                        VStack(alignment: .leading, spacing: 6) {
+                            InfoRow(label: "Path", value: file.fullPath)
+                            InfoRow(label: "Size", value: file.originalSize.formattedFileSize)
+                            InfoRow(label: "Container", value: file.fileExtension.uppercased())
+                            InfoRow(label: "Status", value: file.fileStatus.displayName)
+                        }
+                        .padding(4)
+                    }
 
             // Streams
             if let info = file.mediaInfo {
@@ -305,19 +309,19 @@ struct FileDetailSheet: View {
                 }
             }
 
-            // Error
-            if let error = file.errorMessage {
-                GroupBox("Error") {
-                    Text(error)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                        .padding(4)
+                    // Error
+                    if let error = file.errorMessage {
+                        GroupBox("Error") {
+                            Text(error)
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                                .padding(4)
+                        }
+                    }
                 }
+                .padding()
             }
-
-            Spacer()
         }
-        .padding()
         .frame(minWidth: 500, minHeight: 400)
     }
 }
