@@ -159,3 +159,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix Jellyfin profile picker not selectable (#7) (8b8b063)
 
 [0.3.11]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.11
+
+## [0.3.12] - 2026-04-07
+
+### Changes
+- Concurrent file analysis for faster scanning (#8) (c11597d)
+
+[0.3.12]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.12
+
+## [0.3.13] - 2026-04-07
+
+### Changes
+- Use VideoToolbox hardware encoding for transcoding (#9) (8c1cf8a)
+
+[0.3.13]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.13
