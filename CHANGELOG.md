@@ -250,3 +250,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix MP4 probe by copying full file locally (#20) (ea61389)
 
 [0.3.24]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.24
+
+## [0.3.25] - 2026-04-07
+
+### Changes
+- Cache-first probe strategy for network shares (#21) (b848904)
+
+[0.3.25]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.25
