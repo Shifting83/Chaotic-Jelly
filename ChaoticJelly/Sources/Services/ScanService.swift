@@ -67,6 +67,17 @@ actor ScanService {
             let ext = fileURL.pathExtension.lowercased()
             guard supportedExtensions.contains(ext) else { continue }
 
+            // Skip temp/partial files from other tools or previous runs
+            let fileName = fileURL.lastPathComponent
+            if fileName.contains(".tmp.") ||
+               fileName.hasSuffix(".tmp") ||
+               fileName.hasSuffix(".part") ||
+               fileName.hasSuffix(".chaotic-backup") ||
+               fileName.hasSuffix(".chaotic-tmp") ||
+               fileName.hasPrefix(".") {
+                continue
+            }
+
             let fileSize = Int64(resourceValues?.fileSize ?? 0)
 
             // Build relative path by removing the base folder prefix
