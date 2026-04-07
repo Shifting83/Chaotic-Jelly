@@ -222,3 +222,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix: pipeline mode skipping all processing (#16) (cd6096c)
 
 [0.3.20]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.20
+
+## [0.3.21] - 2026-04-07
+
+### Changes
+- Extend local copy probe fallback to all video formats (#17) (39e22e2)
+
+[0.3.21]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.21
