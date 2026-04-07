@@ -236,3 +236,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Clean up backup files after success, default backups off (#18) (bbc192e)
 
 [0.3.22]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.22
+
+## [0.3.23] - 2026-04-07
+
+### Changes
+- Skip temp and partial files during scan (#19) (177e11b)
+
+[0.3.23]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.23
