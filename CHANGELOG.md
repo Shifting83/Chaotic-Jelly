@@ -115,3 +115,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fix: use individual icon files per size slot for asset catalog (3fa96ae)
 
 [0.3.5]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.5
+
+## [0.3.6] - 2026-04-07
+
+### Changes
+- fix: add hardened runtime entitlements for external tool execution (86c731c)
+
+[0.3.6]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.6
