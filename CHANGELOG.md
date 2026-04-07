@@ -44,3 +44,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fix: resolve Swift compilation errors for Xcode build (912e2d0)
 
 [0.1.1]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.1.1
+
+## [0.2.0] - 2026-04-07
+
+### Changes
+- feat: add app icon — film strip with foreign language/audio prohibition badge (d354b77)
+
+[0.2.0]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.2.0
