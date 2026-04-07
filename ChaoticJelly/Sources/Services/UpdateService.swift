@@ -11,6 +11,8 @@ final class UpdateService {
 
     private(set) var latestRelease: GitHubRelease?
     private(set) var isChecking = false
+    private(set) var isInstalling = false
+    private(set) var installProgress: String?
     private(set) var lastCheckDate: Date?
     private(set) var lastError: String?
 
@@ -85,6 +87,158 @@ final class UpdateService {
 
         if let url = URL(string: dmgAsset.browserDownloadURL) {
             NSWorkspace.shared.open(url)
+        }
+    }
+
+    // MARK: - In-Place Upgrade
+
+    /// Download the DMG, mount it, replace the running app, and relaunch.
+    func installUpdate() async {
+        guard let release = latestRelease,
+              let dmgAsset = release.assets.first(where: { $0.name.hasSuffix(".dmg") })
+        else {
+            lastError = "No DMG found in release"
+            return
+        }
+
+        guard let downloadURL = URL(string: dmgAsset.browserDownloadURL) else {
+            lastError = "Invalid download URL"
+            return
+        }
+
+        isInstalling = true
+        installProgress = "Downloading update..."
+        lastError = nil
+
+        do {
+            // 1. Download DMG
+            let dmgPath = FileManager.default.temporaryDirectory
+                .appendingPathComponent("ChaoticJelly-update.dmg")
+
+            // Clean up previous download
+            try? FileManager.default.removeItem(at: dmgPath)
+
+            var request = URLRequest(url: downloadURL)
+            if let token = try? KeychainService.load(key: .githubPAT) {
+                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            }
+            request.setValue("application/octet-stream", forHTTPHeaderField: "Accept")
+
+            let (tempURL, response) = try await URLSession.shared.download(for: request)
+
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                throw UpdateError.downloadFailed
+            }
+
+            try FileManager.default.moveItem(at: tempURL, to: dmgPath)
+            await logger.logInfo("Downloaded update to \(dmgPath.path)")
+
+            // 2. Mount DMG
+            installProgress = "Mounting disk image..."
+            let mountPoint = try await mountDMG(at: dmgPath)
+
+            // 3. Find the .app inside the mounted volume
+            let contents = try FileManager.default.contentsOfDirectory(
+                at: mountPoint,
+                includingPropertiesForKeys: nil
+            )
+            guard let newApp = contents.first(where: { $0.pathExtension == "app" }) else {
+                try? await unmountDMG(at: mountPoint)
+                throw UpdateError.appNotFoundInDMG
+            }
+
+            // 4. Replace the running app
+            installProgress = "Installing update..."
+            let currentApp = Bundle.main.bundleURL
+
+            // Sanity check: make sure we're replacing an .app
+            guard currentApp.pathExtension == "app" else {
+                try? await unmountDMG(at: mountPoint)
+                throw UpdateError.installFailed("Cannot determine current app location")
+            }
+
+            let backupURL = currentApp.appendingPathExtension("bak")
+            try? FileManager.default.removeItem(at: backupURL)
+
+            // Move current app to backup, copy new app in
+            try FileManager.default.moveItem(at: currentApp, to: backupURL)
+            do {
+                try FileManager.default.copyItem(at: newApp, to: currentApp)
+            } catch {
+                // Restore backup on failure
+                try? FileManager.default.moveItem(at: backupURL, to: currentApp)
+                try? await unmountDMG(at: mountPoint)
+                throw UpdateError.installFailed(error.localizedDescription)
+            }
+
+            // Clean up backup and unmount
+            try? FileManager.default.removeItem(at: backupURL)
+            try? await unmountDMG(at: mountPoint)
+            try? FileManager.default.removeItem(at: dmgPath)
+
+            await logger.logInfo("Update installed, relaunching...")
+            installProgress = "Relaunching..."
+
+            // 5. Relaunch
+            relaunch()
+
+        } catch {
+            isInstalling = false
+            installProgress = nil
+            lastError = error.localizedDescription
+            await logger.logError("Update install failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func mountDMG(at url: URL) async throws -> URL {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/hdiutil")
+        process.arguments = ["attach", url.path, "-nobrowse", "-readonly", "-plist"]
+
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = Pipe()
+
+        try process.run()
+        process.waitUntilExit()
+
+        guard process.terminationStatus == 0 else {
+            throw UpdateError.installFailed("Failed to mount DMG")
+        }
+
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+
+        // Parse plist output to find mount point
+        guard let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
+              let entities = plist["system-entities"] as? [[String: Any]],
+              let mountPoint = entities.compactMap({ $0["mount-point"] as? String }).first
+        else {
+            throw UpdateError.installFailed("Could not determine mount point")
+        }
+
+        return URL(fileURLWithPath: mountPoint)
+    }
+
+    private func unmountDMG(at mountPoint: URL) async throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/hdiutil")
+        process.arguments = ["detach", mountPoint.path, "-quiet"]
+        process.standardOutput = Pipe()
+        process.standardError = Pipe()
+        try process.run()
+        process.waitUntilExit()
+    }
+
+    private func relaunch() {
+        let appURL = Bundle.main.bundleURL
+        let config = NSWorkspace.OpenConfiguration()
+        config.createsNewApplicationInstance = true
+
+        // Launch the new version, then exit the current one
+        NSWorkspace.shared.openApplication(at: appURL, configuration: config) { _, _ in
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                NSApplication.shared.terminate(nil)
+            }
         }
     }
 
@@ -190,6 +344,9 @@ enum UpdateError: LocalizedError {
     case rateLimited
     case noReleasesFound
     case httpError(Int)
+    case downloadFailed
+    case appNotFoundInDMG
+    case installFailed(String)
 
     var errorDescription: String? {
         switch self {
@@ -199,6 +356,9 @@ enum UpdateError: LocalizedError {
         case .rateLimited: return "GitHub API rate limit exceeded — add a token in Settings"
         case .noReleasesFound: return "No releases found"
         case .httpError(let code): return "GitHub API error (HTTP \(code))"
+        case .downloadFailed: return "Failed to download update"
+        case .appNotFoundInDMG: return "No app found in downloaded disk image"
+        case .installFailed(let reason): return "Install failed: \(reason)"
         }
     }
 }

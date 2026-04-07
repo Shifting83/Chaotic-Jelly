@@ -24,24 +24,24 @@ actor FFprobeService {
             throw FFprobeError.fileNotFound(filePath)
         }
 
+        // We only need stream metadata (codecs, languages, track layout),
+        // not deep content analysis. Use minimal probe settings for speed.
         let arguments = [
             "-v", "quiet",
             "-print_format", "json",
             "-show_format",
             "-show_streams",
-            "-analyzeduration", "10000000",  // 10s max analyze (helps with network files)
-            "-probesize", "10000000",        // 10MB probe size
+            "-analyzeduration", "2000000",   // 2s — enough for stream detection
+            "-probesize", "2000000",         // 2MB — enough for container headers
             filePath
         ]
-
-        await logger.logDiagnostic("Running ffprobe on: \(fileURL.lastPathComponent)")
 
         let result: ProcessResult
         do {
             result = try await processRunner.runOrThrow(
                 executablePath: ffprobePath,
                 arguments: arguments,
-                timeout: 300  // 5 min timeout for network share files
+                timeout: 60  // 1 min timeout — if it takes longer, something is wrong
             )
         } catch {
             await logger.logError("ffprobe failed for \(fileURL.lastPathComponent): \(error.localizedDescription)")
