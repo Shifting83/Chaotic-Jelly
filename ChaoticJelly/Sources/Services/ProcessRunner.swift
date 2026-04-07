@@ -14,7 +14,7 @@ struct ProcessResult: Sendable {
 
 // MARK: - ProcessError
 
-enum ProcessError: LocalizedError {
+enum ProcessError: LocalizedError, Sendable {
     case toolNotFound(String)
     case executionFailed(command: String, exitCode: Int32, stderr: String)
     case timeout(command: String, seconds: TimeInterval)
@@ -36,9 +36,9 @@ enum ProcessError: LocalizedError {
 
 // MARK: - ProcessRunner
 
-/// Thread-safe wrapper around Foundation.Process for executing external tools.
-actor ProcessRunner {
-    private var runningProcesses: [UUID: Process] = [:]
+/// Runs external processes (ffmpeg, ffprobe, mkvmerge).
+/// Uses nonisolated methods for Process execution to avoid Sendable issues.
+final class ProcessRunner: Sendable {
 
     /// Run a command and return the result.
     func run(
@@ -48,48 +48,43 @@ actor ProcessRunner {
         environment: [String: String]? = nil,
         timeout: TimeInterval = 3600
     ) async throws -> ProcessResult {
-        let processID = UUID()
         let commandString = ([executablePath] + arguments).joined(separator: " ")
-
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: executablePath)
-        process.arguments = arguments
-
-        if let workingDirectory {
-            process.currentDirectoryURL = workingDirectory
-        }
-
-        if let environment {
-            var env = ProcessInfo.processInfo.environment
-            env.merge(environment) { _, new in new }
-            process.environment = env
-        }
-
-        let stdoutPipe = Pipe()
-        let stderrPipe = Pipe()
-        process.standardOutput = stdoutPipe
-        process.standardError = stderrPipe
-
         let startTime = Date()
 
-        // Store for cancellation
-        runningProcesses[processID] = process
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<ProcessResult, Error>) in
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: executablePath)
+            process.arguments = arguments
 
-        defer {
-            runningProcesses[processID] = nil
-        }
-
-        return try await withCheckedThrowingContinuation { continuation in
-            // Timeout task
-            let timeoutTask = Task {
-                try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
-                if process.isRunning {
-                    process.terminate()
-                }
+            if let workingDirectory {
+                process.currentDirectoryURL = workingDirectory
             }
 
-            process.terminationHandler = { [weak self] proc in
-                timeoutTask.cancel()
+            if let environment {
+                var env = ProcessInfo.processInfo.environment
+                env.merge(environment) { _, new in new }
+                process.environment = env
+            }
+
+            let stdoutPipe = Pipe()
+            let stderrPipe = Pipe()
+            process.standardOutput = stdoutPipe
+            process.standardError = stderrPipe
+
+            // Use a flag to prevent double-resume
+            let resumed = ManagedAtomic(false)
+
+            // Timeout via DispatchQueue (avoids actor isolation issues)
+            let timeoutItem = DispatchWorkItem { [weak process] in
+                process?.terminate()
+            }
+            DispatchQueue.global().asyncAfter(
+                deadline: .now() + timeout,
+                execute: timeoutItem
+            )
+
+            process.terminationHandler = { _ in
+                timeoutItem.cancel()
 
                 let stdoutData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
                 let stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
@@ -99,44 +94,28 @@ actor ProcessRunner {
                 let duration = Date().timeIntervalSince(startTime)
 
                 let result = ProcessResult(
-                    exitCode: proc.terminationStatus,
+                    exitCode: process.terminationStatus,
                     stdout: stdout,
                     stderr: stderr,
                     command: commandString,
                     duration: duration
                 )
 
-                Task { await self?.removeProcess(processID) }
-                continuation.resume(returning: result)
+                if resumed.exchange(true) == false {
+                    continuation.resume(returning: result)
+                }
             }
 
             do {
                 try process.run()
             } catch {
-                timeoutTask.cancel()
-                Task { await self.removeProcess(processID) }
-                continuation.resume(throwing: ProcessError.toolNotFound(executablePath))
+                timeoutItem.cancel()
+                process.terminationHandler = nil
+                if resumed.exchange(true) == false {
+                    continuation.resume(throwing: ProcessError.toolNotFound(executablePath))
+                }
             }
         }
-    }
-
-    /// Cancel a specific running process.
-    func cancel(processID: UUID) {
-        if let process = runningProcesses[processID], process.isRunning {
-            process.terminate()
-        }
-    }
-
-    /// Cancel all running processes.
-    func cancelAll() {
-        for (_, process) in runningProcesses where process.isRunning {
-            process.terminate()
-        }
-        runningProcesses.removeAll()
-    }
-
-    private func removeProcess(_ id: UUID) {
-        runningProcesses[id] = nil
     }
 }
 
@@ -164,5 +143,24 @@ extension ProcessRunner {
             )
         }
         return result
+    }
+}
+
+// MARK: - Simple Atomic Bool (lock-based, no external deps)
+
+private final class ManagedAtomic<T>: @unchecked Sendable {
+    private var value: T
+    private let lock = NSLock()
+
+    init(_ value: T) {
+        self.value = value
+    }
+
+    func exchange(_ newValue: T) -> T {
+        lock.lock()
+        defer { lock.unlock() }
+        let old = value
+        value = newValue
+        return old
     }
 }

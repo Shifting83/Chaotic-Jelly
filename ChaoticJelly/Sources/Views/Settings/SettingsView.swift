@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct SettingsView: View {
     let container: ServiceContainer
@@ -132,9 +133,9 @@ struct ProcessingSettingsView: View {
             }
 
             Section("Overwrite Behavior") {
-                Picker("When replacing files", selection: $settings.overwriteBehavior) {
+                Picker("When replacing files", selection: $settings.overwriteBehaviorRaw) {
                     ForEach(OverwriteBehavior.allCases, id: \.self) { behavior in
-                        Text(behavior.displayName).tag(behavior)
+                        Text(behavior.displayName).tag(behavior.rawValue)
                     }
                 }
                 .pickerStyle(.radioGroup)
@@ -165,10 +166,10 @@ struct JellyfinSettingsView: View {
 
             if settings.optimizeForJellyfin {
                 Section("Target Profile") {
-                    Picker("Profile", selection: $settings.jellyfinProfile) {
+                    Picker("Profile", selection: $settings.jellyfinProfileRaw) {
                         ForEach(JellyfinProfile.allCases, id: \.self) { profile in
                             VStack(alignment: .leading) {
-                                Text(profile.displayName).tag(profile)
+                                Text(profile.displayName).tag(profile.rawValue)
                             }
                         }
                     }
@@ -368,7 +369,3 @@ struct UpdateSettingsView: View {
     }
 }
 
-// MARK: - @Bindable conformance for @Observable
-
-extension AppSettings: @preconcurrency Bindable {
-}

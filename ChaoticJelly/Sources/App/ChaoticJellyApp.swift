@@ -42,7 +42,6 @@ struct ChaoticJellyApp: App {
             }
         }
         .modelContainer(modelContainer)
-        .windowStyle(.titleBar)
         .windowToolbarStyle(.unified(showsTitle: true))
         .defaultSize(width: 1100, height: 700)
 

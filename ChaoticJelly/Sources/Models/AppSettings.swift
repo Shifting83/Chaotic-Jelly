@@ -3,138 +3,125 @@ import SwiftUI
 
 // MARK: - AppSettings
 
+/// App settings backed by UserDefaults with @Observable support.
+/// Uses stored properties with didSet to write through to UserDefaults,
+/// ensuring @Observable tracking fires correctly.
 @Observable
-final class AppSettings {
+final class AppSettings: @unchecked Sendable {
+
     // MARK: Language Settings
 
-    var keepLanguages: [String] {
-        get { UserDefaults.standard.stringArray(forKey: Keys.keepLanguages) ?? ["eng"] }
-        set { UserDefaults.standard.set(newValue, forKey: Keys.keepLanguages) }
+    var keepLanguages: [String] = UserDefaults.standard.stringArray(forKey: Keys.keepLanguages) ?? ["eng"] {
+        didSet { UserDefaults.standard.set(keepLanguages, forKey: Keys.keepLanguages) }
     }
 
-    var removeSubtitles: Bool {
-        get { UserDefaults.standard.bool(forKey: Keys.removeSubtitles, default: true) }
-        set { UserDefaults.standard.set(newValue, forKey: Keys.removeSubtitles) }
+    var removeSubtitles: Bool = UserDefaults.standard.bool(forKey: Keys.removeSubtitles, default: true) {
+        didSet { UserDefaults.standard.set(removeSubtitles, forKey: Keys.removeSubtitles) }
     }
 
-    var removeAudio: Bool {
-        get { UserDefaults.standard.bool(forKey: Keys.removeAudio, default: false) }
-        set { UserDefaults.standard.set(newValue, forKey: Keys.removeAudio) }
+    var removeAudio: Bool = UserDefaults.standard.bool(forKey: Keys.removeAudio, default: false) {
+        didSet { UserDefaults.standard.set(removeAudio, forKey: Keys.removeAudio) }
     }
 
-    var conservativeMode: Bool {
-        get { UserDefaults.standard.bool(forKey: Keys.conservativeMode, default: true) }
-        set { UserDefaults.standard.set(newValue, forKey: Keys.conservativeMode) }
+    var conservativeMode: Bool = UserDefaults.standard.bool(forKey: Keys.conservativeMode, default: true) {
+        didSet { UserDefaults.standard.set(conservativeMode, forKey: Keys.conservativeMode) }
     }
 
-    var preserveForced: Bool {
-        get { UserDefaults.standard.bool(forKey: Keys.preserveForced, default: true) }
-        set { UserDefaults.standard.set(newValue, forKey: Keys.preserveForced) }
+    var preserveForced: Bool = UserDefaults.standard.bool(forKey: Keys.preserveForced, default: true) {
+        didSet { UserDefaults.standard.set(preserveForced, forKey: Keys.preserveForced) }
     }
 
-    var preserveSDH: Bool {
-        get { UserDefaults.standard.bool(forKey: Keys.preserveSDH, default: false) }
-        set { UserDefaults.standard.set(newValue, forKey: Keys.preserveSDH) }
+    var preserveSDH: Bool = UserDefaults.standard.bool(forKey: Keys.preserveSDH, default: false) {
+        didSet { UserDefaults.standard.set(preserveSDH, forKey: Keys.preserveSDH) }
     }
 
-    var preserveCommentary: Bool {
-        get { UserDefaults.standard.bool(forKey: Keys.preserveCommentary, default: false) }
-        set { UserDefaults.standard.set(newValue, forKey: Keys.preserveCommentary) }
+    var preserveCommentary: Bool = UserDefaults.standard.bool(forKey: Keys.preserveCommentary, default: false) {
+        didSet { UserDefaults.standard.set(preserveCommentary, forKey: Keys.preserveCommentary) }
     }
 
     // MARK: Jellyfin Settings
 
-    var optimizeForJellyfin: Bool {
-        get { UserDefaults.standard.bool(forKey: Keys.optimizeForJellyfin) }
-        set { UserDefaults.standard.set(newValue, forKey: Keys.optimizeForJellyfin) }
+    var optimizeForJellyfin: Bool = UserDefaults.standard.bool(forKey: Keys.optimizeForJellyfin) {
+        didSet { UserDefaults.standard.set(optimizeForJellyfin, forKey: Keys.optimizeForJellyfin) }
+    }
+
+    var jellyfinProfileRaw: String = UserDefaults.standard.string(forKey: Keys.jellyfinProfile) ?? JellyfinProfile.broad.rawValue {
+        didSet { UserDefaults.standard.set(jellyfinProfileRaw, forKey: Keys.jellyfinProfile) }
     }
 
     var jellyfinProfile: JellyfinProfile {
-        get {
-            let raw = UserDefaults.standard.string(forKey: Keys.jellyfinProfile) ?? ""
-            return JellyfinProfile(rawValue: raw) ?? .broad
-        }
-        set { UserDefaults.standard.set(newValue.rawValue, forKey: Keys.jellyfinProfile) }
+        get { JellyfinProfile(rawValue: jellyfinProfileRaw) ?? .broad }
+        set { jellyfinProfileRaw = newValue.rawValue }
     }
 
     // MARK: Processing Settings
 
-    var cachePath: URL {
-        get {
-            if let path = UserDefaults.standard.string(forKey: Keys.cachePath) {
-                return URL(fileURLWithPath: path)
-            }
-            return Self.defaultCachePath
-        }
-        set { UserDefaults.standard.set(newValue.path, forKey: Keys.cachePath) }
+    var cachePathString: String = UserDefaults.standard.string(forKey: Keys.cachePath) ?? AppSettings.defaultCachePath.path {
+        didSet { UserDefaults.standard.set(cachePathString, forKey: Keys.cachePath) }
     }
 
-    var maxCacheSizeGB: Int {
-        get { UserDefaults.standard.integer(forKey: Keys.maxCacheSizeGB, default: 50) }
-        set { UserDefaults.standard.set(newValue, forKey: Keys.maxCacheSizeGB) }
+    var cachePath: URL {
+        get { URL(fileURLWithPath: cachePathString) }
+        set { cachePathString = newValue.path }
+    }
+
+    var maxCacheSizeGB: Int = UserDefaults.standard.integer(forKey: Keys.maxCacheSizeGB, default: 50) {
+        didSet { UserDefaults.standard.set(maxCacheSizeGB, forKey: Keys.maxCacheSizeGB) }
     }
 
     var maxCacheSizeBytes: Int64 {
         Int64(maxCacheSizeGB) * 1_073_741_824
     }
 
-    var maxConcurrentFiles: Int {
-        get { UserDefaults.standard.integer(forKey: Keys.maxConcurrentFiles, default: 1) }
-        set { UserDefaults.standard.set(newValue, forKey: Keys.maxConcurrentFiles) }
+    var maxConcurrentFiles: Int = UserDefaults.standard.integer(forKey: Keys.maxConcurrentFiles, default: 1) {
+        didSet { UserDefaults.standard.set(maxConcurrentFiles, forKey: Keys.maxConcurrentFiles) }
     }
 
-    var createBackup: Bool {
-        get { UserDefaults.standard.bool(forKey: Keys.createBackup, default: true) }
-        set { UserDefaults.standard.set(newValue, forKey: Keys.createBackup) }
+    var createBackup: Bool = UserDefaults.standard.bool(forKey: Keys.createBackup, default: true) {
+        didSet { UserDefaults.standard.set(createBackup, forKey: Keys.createBackup) }
     }
 
-    var backupRetentionDays: Int {
-        get { UserDefaults.standard.integer(forKey: Keys.backupRetentionDays, default: 7) }
-        set { UserDefaults.standard.set(newValue, forKey: Keys.backupRetentionDays) }
+    var backupRetentionDays: Int = UserDefaults.standard.integer(forKey: Keys.backupRetentionDays, default: 7) {
+        didSet { UserDefaults.standard.set(backupRetentionDays, forKey: Keys.backupRetentionDays) }
+    }
+
+    var overwriteBehaviorRaw: String = UserDefaults.standard.string(forKey: Keys.overwriteBehavior) ?? OverwriteBehavior.confirmEach.rawValue {
+        didSet { UserDefaults.standard.set(overwriteBehaviorRaw, forKey: Keys.overwriteBehavior) }
     }
 
     var overwriteBehavior: OverwriteBehavior {
-        get {
-            let raw = UserDefaults.standard.string(forKey: Keys.overwriteBehavior) ?? ""
-            return OverwriteBehavior(rawValue: raw) ?? .confirmEach
-        }
-        set { UserDefaults.standard.set(newValue.rawValue, forKey: Keys.overwriteBehavior) }
+        get { OverwriteBehavior(rawValue: overwriteBehaviorRaw) ?? .confirmEach }
+        set { overwriteBehaviorRaw = newValue.rawValue }
     }
 
     // MARK: Tool Paths
 
-    var ffmpegPath: String {
-        get { UserDefaults.standard.string(forKey: Keys.ffmpegPath) ?? "" }
-        set { UserDefaults.standard.set(newValue, forKey: Keys.ffmpegPath) }
+    var ffmpegPath: String = UserDefaults.standard.string(forKey: Keys.ffmpegPath) ?? "" {
+        didSet { UserDefaults.standard.set(ffmpegPath, forKey: Keys.ffmpegPath) }
     }
 
-    var ffprobePath: String {
-        get { UserDefaults.standard.string(forKey: Keys.ffprobePath) ?? "" }
-        set { UserDefaults.standard.set(newValue, forKey: Keys.ffprobePath) }
+    var ffprobePath: String = UserDefaults.standard.string(forKey: Keys.ffprobePath) ?? "" {
+        didSet { UserDefaults.standard.set(ffprobePath, forKey: Keys.ffprobePath) }
     }
 
-    var mkvmergePath: String {
-        get { UserDefaults.standard.string(forKey: Keys.mkvmergePath) ?? "" }
-        set { UserDefaults.standard.set(newValue, forKey: Keys.mkvmergePath) }
+    var mkvmergePath: String = UserDefaults.standard.string(forKey: Keys.mkvmergePath) ?? "" {
+        didSet { UserDefaults.standard.set(mkvmergePath, forKey: Keys.mkvmergePath) }
     }
 
     // MARK: LLM Settings
 
-    var llmEnabled: Bool {
-        get { UserDefaults.standard.bool(forKey: Keys.llmEnabled) }
-        set { UserDefaults.standard.set(newValue, forKey: Keys.llmEnabled) }
+    var llmEnabled: Bool = UserDefaults.standard.bool(forKey: Keys.llmEnabled) {
+        didSet { UserDefaults.standard.set(llmEnabled, forKey: Keys.llmEnabled) }
     }
 
-    var llmProvider: String {
-        get { UserDefaults.standard.string(forKey: Keys.llmProvider) ?? "anthropic" }
-        set { UserDefaults.standard.set(newValue, forKey: Keys.llmProvider) }
+    var llmProvider: String = UserDefaults.standard.string(forKey: Keys.llmProvider) ?? "anthropic" {
+        didSet { UserDefaults.standard.set(llmProvider, forKey: Keys.llmProvider) }
     }
 
     // MARK: Update Settings
 
-    var checkForUpdates: Bool {
-        get { UserDefaults.standard.bool(forKey: Keys.checkForUpdates, default: true) }
-        set { UserDefaults.standard.set(newValue, forKey: Keys.checkForUpdates) }
+    var checkForUpdates: Bool = UserDefaults.standard.bool(forKey: Keys.checkForUpdates, default: true) {
+        didSet { UserDefaults.standard.set(checkForUpdates, forKey: Keys.checkForUpdates) }
     }
 
     // MARK: Helpers

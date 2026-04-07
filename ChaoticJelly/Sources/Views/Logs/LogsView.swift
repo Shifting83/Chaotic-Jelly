@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct LogsView: View {
     @State var viewModel: LogsViewModel

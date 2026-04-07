@@ -100,11 +100,11 @@ enum KeychainError: LocalizedError {
         case .encodingFailed:
             return "Failed to encode value for Keychain"
         case .saveFailed(let status):
-            return "Keychain save failed: \(SecCopyErrorMessageString(status, nil) ?? "unknown" as CFString)"
+            return "Keychain save failed: \((SecCopyErrorMessageString(status, nil) as String?) ?? "unknown")"
         case .loadFailed(let status):
-            return "Keychain load failed: \(SecCopyErrorMessageString(status, nil) ?? "unknown" as CFString)"
+            return "Keychain load failed: \((SecCopyErrorMessageString(status, nil) as String?) ?? "unknown")"
         case .deleteFailed(let status):
-            return "Keychain delete failed: \(SecCopyErrorMessageString(status, nil) ?? "unknown" as CFString)"
+            return "Keychain delete failed: \((SecCopyErrorMessageString(status, nil) as String?) ?? "unknown")"
         }
     }
 }

@@ -4,7 +4,7 @@ import SwiftData
 // MARK: - JobManager
 
 /// Manages job lifecycle: creation, execution, persistence, and recovery.
-@Observable
+@MainActor @Observable
 final class JobManager {
     private let modelContext: ModelContext
     private let scanService: ScanService
@@ -45,7 +45,6 @@ final class JobManager {
     // MARK: - Job Creation
 
     /// Create a new job for a folder scan.
-    @MainActor
     func createJob(
         folderURL: URL,
         processingMode: ProcessingMode,
