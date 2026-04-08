@@ -296,3 +296,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fix: use target container extension for remux output file (28043dd)
 
 [0.3.30]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.30
+
+## [0.3.31] - 2026-04-08
+
+### Changes
+- fix: rename file extension after container remux (c7ba950)
+
+[0.3.31]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.31
