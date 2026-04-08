@@ -329,3 +329,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - docs: add UX redesign spec — holistic UI overhaul (72ae70d)
 
 [0.4.0]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.4.0
+
+## [0.4.1] - 2026-04-08
+
+### Changes
+- Fix processing progress, sidebar navigation, and UX polish (#27) (93f43cb)
+
+[0.4.1]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.4.1
