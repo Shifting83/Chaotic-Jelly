@@ -2,7 +2,7 @@ import Foundation
 import SwiftUI
 import AppKit
 
-@Observable
+@MainActor @Observable
 final class ScanViewModel {
     private let container: ServiceContainer
 
@@ -27,7 +27,6 @@ final class ScanViewModel {
 
     // MARK: - Folder Selection
 
-    @MainActor
     func selectFolder() {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
@@ -44,7 +43,6 @@ final class ScanViewModel {
 
     // MARK: - Scan + Analyze
 
-    @MainActor
     func startScanAndAnalysis() async {
         guard let folderURL = selectedFolderURL else { return }
 

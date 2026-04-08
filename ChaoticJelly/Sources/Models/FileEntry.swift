@@ -100,8 +100,10 @@ final class FileEntry {
         case (.pending, .analyzing),
              (.analyzing, .analyzed),
              (.analyzed, .queued),
+             (.analyzed, .processing),
              (.queued, .processing),
              (.processing, .validating),
+             (.processing, .completed),
              (.validating, .completed),
              (_, .failed),
              (_, .skipped):

@@ -17,4 +17,5 @@ extension Color {
     static let cjLogWarn = Color(nsColor: NSColor(red: 220/255, green: 220/255, blue: 170/255, alpha: 1))
     static let cjLogError = Color(nsColor: NSColor(red: 244/255, green: 71/255, blue: 71/255, alpha: 1))
     static let cjErrorBackground = Color(nsColor: NSColor(red: 255/255, green: 245/255, blue: 245/255, alpha: 1))
+    static let cjLogBorder = Color(nsColor: NSColor(red: 51/255, green: 51/255, blue: 51/255, alpha: 1))
 }

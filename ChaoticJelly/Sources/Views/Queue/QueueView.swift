@@ -61,7 +61,7 @@ struct QueueView: View {
                         .font(.cjSecondary)
                 }
                 .buttonStyle(.bordered)
-                .tint(.red)
+                .tint(Color.cjError)
                 .controlSize(.small)
             }
 

@@ -229,12 +229,12 @@ struct ToolSettingsView: View {
                 ForEach(toolStatuses) { status in
                     HStack {
                         Image(systemName: status.isAvailable ? "checkmark.circle.fill" : "xmark.circle.fill")
-                            .foregroundStyle(status.isAvailable ? .green : .red)
+                            .foregroundStyle(status.isAvailable ? Color.cjSuccess : Color.cjError)
                         Text(status.tool.displayName)
                         Spacer()
                         Text(status.resolvedPath ?? "Not found")
                             .font(.caption)
-                            .foregroundStyle(status.isAvailable ? Color.secondary : Color.red)
+                            .foregroundStyle(status.isAvailable ? Color.cjTextSecondary : Color.cjError)
                     }
                 }
 
@@ -357,7 +357,7 @@ struct UpdateSettingsView: View {
                 } else if updateService.updateAvailable, let release = updateService.latestRelease {
                     HStack {
                         Image(systemName: "arrow.down.circle.fill")
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(Color.cjPrimary)
                         Text("\(release.tagName) available")
                             .fontWeight(.medium)
                         Spacer()
@@ -376,7 +376,7 @@ struct UpdateSettingsView: View {
                 } else if updateService.latestRelease != nil {
                     HStack {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.cjSuccess)
                         Text("You're up to date")
                     }
                 }
@@ -384,7 +384,7 @@ struct UpdateSettingsView: View {
                 if let error = updateService.lastError {
                     HStack {
                         Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.yellow)
+                            .foregroundStyle(Color.cjWarning)
                         Text(error)
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -395,7 +395,7 @@ struct UpdateSettingsView: View {
             Section("GitHub Private Repository") {
                 HStack {
                     Image(systemName: hasGitHubToken ? "checkmark.circle.fill" : "xmark.circle.fill")
-                        .foregroundStyle(hasGitHubToken ? .green : .red)
+                        .foregroundStyle(hasGitHubToken ? Color.cjSuccess : Color.cjError)
                     Text(hasGitHubToken ? "Token configured" : "No token configured")
                 }
 
@@ -459,7 +459,7 @@ struct ArrSettingsView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
                             Image(systemName: instance.type.systemImage)
-                                .foregroundStyle(instance.isEnabled ? .blue : .secondary)
+                                .foregroundStyle(instance.isEnabled ? Color.cjPrimary : Color.cjTextSecondary)
                             TextField("Name", text: $instance.name)
                                 .textFieldStyle(.roundedBorder)
                                 .frame(maxWidth: 150)
@@ -499,7 +499,7 @@ struct ArrSettingsView: View {
                         if let result = testResults[instance.id] {
                             Text(result)
                                 .font(.caption)
-                                .foregroundStyle(result.hasPrefix("Connected") ? .green : .red)
+                                .foregroundStyle(result.hasPrefix("Connected") ? Color.cjSuccess : Color.cjError)
                         }
                     }
                     .padding(.vertical, 4)

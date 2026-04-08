@@ -48,6 +48,7 @@ struct ContentView: View {
     @State private var selectedItem: NavigationItem = .dashboard
     @State private var scanVM: ScanViewModel?
     @State private var reviewVM: ReviewViewModel?
+    @State private var queueVM: QueueViewModel?
 
     var body: some View {
         NavigationSplitView {
@@ -82,6 +83,7 @@ struct ContentView: View {
         .onAppear {
             scanVM = ScanViewModel(container: container)
             reviewVM = ReviewViewModel(container: container)
+            queueVM = QueueViewModel(container: container)
         }
     }
 
@@ -94,18 +96,18 @@ struct ContentView: View {
                 .tag(item)
                 .badge(count > 0 ? count : 0)
         case .processing:
-            if let job = container.jobManager.activeJob {
-                Label(item.rawValue, systemImage: item.systemImage)
-                    .tag(item)
-                    .badge("\(job.completedFileCount)/\(job.fileCount)")
-            } else {
-                Label(item.rawValue, systemImage: item.systemImage)
-                    .tag(item)
-            }
+            Label(item.rawValue, systemImage: item.systemImage)
+                .tag(item)
+                .badge(processingBadge)
         default:
             Label(item.rawValue, systemImage: item.systemImage)
                 .tag(item)
         }
+    }
+
+    private var processingBadge: Text? {
+        guard let job = container.jobManager.activeJob else { return nil }
+        return Text("\(job.completedFileCount)/\(job.fileCount)")
     }
 
     @ViewBuilder
@@ -118,7 +120,9 @@ struct ContentView: View {
         case .scan:
             if let scanVM {
                 ScanView(viewModel: scanVM, settings: container.settings, onReview: { job in
-                    reviewVM?.job = job
+                    if let reviewVM {
+                        reviewVM.job = job
+                    }
                     selectedItem = .review
                 })
             }
@@ -129,7 +133,9 @@ struct ContentView: View {
                 })
             }
         case .processing:
-            QueueView(viewModel: QueueViewModel(container: container))
+            if let queueVM {
+                QueueView(viewModel: queueVM)
+            }
         case .history:
             HistoryView(viewModel: HistoryViewModel(container: container))
         case .logs:
