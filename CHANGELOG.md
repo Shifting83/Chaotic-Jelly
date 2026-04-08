@@ -303,3 +303,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fix: rename file extension after container remux (c7ba950)
 
 [0.3.31]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.31
+
+## [0.4.0] - 2026-04-08
+
+### Changes
+- UX Redesign — holistic UI overhaul (#26) (1a89833)
+- fix: avoid flatMap in async context for Swift 6 compatibility (d45609a)
+- fix: ButtonStyle ternary — split into if/else for type erasure (7a23fd1)
+- fix: missing closing brace in StatusDot.swift (fb27e86)
+- fix: add @MainActor to DashboardViewModel, fix activeJob isolation in sidebar (5dc2779)
+- fix: compilation errors — StatusDot animation, QueueViewModel reversed(), WorkflowStepper return type (797948e)
+- chore: add .superpowers to .gitignore (890415e)
+- feat: add WorkflowStepper to Scan view during active scans (a2f1736)
+- feat: add first-run wizard — tool detection, language prefs, onboarding (9de42ee)
+- feat: Settings window — remove fixed size, consolidate Arr tab, toolbar icons (d15b1ba)
+- feat: redesign History and Logs screens — expandable rows, dark terminal, filter pills (f2cbca1)
+- feat: redesign Processing screen — lively feedback with animated counters and file feed (576a29f)
+- feat: redesign Review screen — expandable rows, filter pills, inline stream detail (20fc4fe)
+- feat: redesign Dashboard — hybrid hub with New Scan CTA, active job panel, stat cards (400f510)
+- feat: grouped sidebar navigation — Workflow and Reference sections (8e4a378)
+- feat: add WorkflowStepper and ExpandableRow components (a736bf3)
+- feat: add shared components — StatusDot, EmptyStateView, FilterToolbar (b971091)
+- feat: add design token system — colors, fonts, view modifiers (c27bd81)
+- docs: add UX redesign implementation plan — 14 tasks (e0cab47)
+- docs: add UX redesign spec — holistic UI overhaul (72ae70d)
+
+[0.4.0]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.4.0
