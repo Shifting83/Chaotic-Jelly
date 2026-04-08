@@ -23,11 +23,19 @@ struct CJEmptyStateView: View {
                 .foregroundStyle(Color.cjTextSecondary)
 
             if let actionTitle, let action {
-                Button(action: action) {
-                    Text(actionTitle)
+                if isPrimaryAction {
+                    Button(action: action) {
+                        Text(actionTitle)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.regular)
+                } else {
+                    Button(action: action) {
+                        Text(actionTitle)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.regular)
                 }
-                .buttonStyle(isPrimaryAction ? .borderedProminent : .bordered)
-                .controlSize(.regular)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
