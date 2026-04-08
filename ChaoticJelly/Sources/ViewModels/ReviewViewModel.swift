@@ -1,7 +1,7 @@
 import Foundation
 import SwiftUI
 
-@Observable
+@MainActor @Observable
 final class ReviewViewModel {
     private let container: ServiceContainer
 
@@ -67,6 +67,9 @@ final class ReviewViewModel {
         let estimatedSavings = toProcess.compactMap { $0.analysisResult?.estimatedSavingsBytes }.reduce(0, +)
         let warnings = toProcess.flatMap { $0.warnings }
 
+        let isDryRun = job.settingsSnapshot
+            .flatMap { try? JSONDecoder().decode(JobSettings.self, from: $0) }?.dryRun ?? false
+
         return ReviewSummary(
             totalFiles: files.count,
             filesToProcess: toProcess.count,
@@ -75,11 +78,10 @@ final class ReviewViewModel {
             totalStreamsToRemove: totalRemoveStreams,
             estimatedSavingsBytes: estimatedSavings,
             warningCount: warnings.count,
-            isDryRun: false
+            isDryRun: isDryRun
         )
     }
 
-    @MainActor
     func startProcessing() async {
         guard let job else { return }
         await container.jobManager.processJob(job: job)

@@ -11,7 +11,7 @@ struct StatusDot: View {
             .fill(color)
             .frame(width: 8, height: 8)
             .opacity(pulsing && isAnimating ? 0.4 : 1.0)
-            .animation(pulsing ? .easeInOut(duration: 1.5).repeatForever(autoreverses: true) : .default, value: isAnimating)
+            .animation(pulsing ? .easeInOut(duration: 1.5).repeatForever(autoreverses: true) : .default, value: pulsing)
             .onAppear {
                 if pulsing { isAnimating = true }
             }

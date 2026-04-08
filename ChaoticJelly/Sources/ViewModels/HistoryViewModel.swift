@@ -1,7 +1,7 @@
 import Foundation
 import SwiftUI
 
-@Observable
+@MainActor @Observable
 final class HistoryViewModel {
     private let container: ServiceContainer
 
@@ -33,18 +33,15 @@ final class HistoryViewModel {
         jobs.filter { $0.jobStatus == .completed }.reduce(0) { $0 + $1.bytesSaved }
     }
 
-    @MainActor
     func refresh() {
         jobs = container.jobManager.fetchJobs()
     }
 
-    @MainActor
     func deleteJob(_ job: Job) {
         container.jobManager.deleteJob(job)
         refresh()
     }
 
-    @MainActor
     func retryJob(_ job: Job) async {
         await container.jobManager.retryFailedFiles(job: job)
         refresh()

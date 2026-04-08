@@ -70,7 +70,7 @@ struct LogsView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 10))
                     .overlay(
                         RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color(white: 0.2), lineWidth: 1)
+                            .stroke(Color.cjLogBorder, lineWidth: 1)
                     )
                     .padding(.horizontal, 24)
                     .padding(.bottom, 24)

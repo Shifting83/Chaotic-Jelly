@@ -123,10 +123,10 @@ struct ScanView: View {
             // Error display
             if let error = viewModel.error {
                 Text(error)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Color.cjError)
                     .font(.callout)
                     .padding()
-                    .background(.red.opacity(0.1))
+                    .background(Color.cjErrorBackground)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
             }
 
@@ -222,7 +222,7 @@ struct ScanView: View {
 
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 48))
-                .foregroundStyle(.green)
+                .foregroundStyle(Color.cjSuccess)
 
             Text("Analysis Complete")
                 .font(.title2)
@@ -237,7 +237,7 @@ struct ScanView: View {
 
                 if job.errorCount > 0 {
                     Text("\(job.errorCount) files had errors")
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Color.cjError)
                 }
             }
 

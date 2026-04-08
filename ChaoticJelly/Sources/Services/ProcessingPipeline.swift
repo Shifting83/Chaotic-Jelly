@@ -134,7 +134,6 @@ actor ProcessingPipeline {
 
         // 5. Replace the original
         let outputSize = fileSize(at: outputFile)
-        var finalDestination = sourceURL
         do {
             try await replaceOriginal(
                 source: outputFile,
@@ -149,7 +148,6 @@ actor ProcessingPipeline {
                 if currentExt != targetExt.lowercased() {
                     let newURL = sourceURL.deletingPathExtension().appendingPathExtension(targetExt)
                     try FileManager.default.moveItem(at: sourceURL, to: newURL)
-                    finalDestination = newURL
                     await logger.logDiagnostic("Renamed \(sourceURL.lastPathComponent) → \(newURL.lastPathComponent)")
                 }
             }
