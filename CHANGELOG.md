@@ -282,3 +282,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Implement Jellyfin optimization analysis (was never wired up) (#25) (e9a4c1e)
 
 [0.3.28]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.28
+
+## [0.3.29] - 2026-04-08
+
+### Changes
+- fix: mark remuxContainer as destructive so files are processed (f4bba55)
+
+[0.3.29]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.29
