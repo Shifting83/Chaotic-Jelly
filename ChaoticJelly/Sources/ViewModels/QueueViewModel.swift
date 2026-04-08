@@ -25,7 +25,7 @@ final class QueueViewModel {
 
     var completedFiles: [FileEntry] {
         guard let job = activeJob else { return [] }
-        return job.files.filter { $0.fileStatus == .completed }.reversed()
+        return Array(job.files.filter { $0.fileStatus == .completed }.reversed())
     }
 
     var failedFiles: [FileEntry] {

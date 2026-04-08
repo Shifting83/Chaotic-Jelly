@@ -4,15 +4,20 @@ struct StatusDot: View {
     let color: Color
     var pulsing: Bool = false
 
+    @State private var isAnimating = false
+
     var body: some View {
         Circle()
             .fill(color)
             .frame(width: 8, height: 8)
-            .opacity(pulsing ? pulseOpacity : 1)
-            .animation(pulsing ? .easeInOut(duration: 1.5).repeatForever(autoreverses: true) : .default, value: pulsing)
-    }
-
-    @State private var pulseOpacity: Double = 0.4
+            .opacity(pulsing && isAnimating ? 0.4 : 1.0)
+            .animation(pulsing ? .easeInOut(duration: 1.5).repeatForever(autoreverses: true) : .default, value: isAnimating)
+            .onAppear {
+                if pulsing { isAnimating = true }
+            }
+            .onChange(of: pulsing) { _, newValue in
+                isAnimating = newValue
+            }
 }
 
 extension StatusDot {

@@ -128,7 +128,7 @@ struct WorkflowStepper: View {
         }
     }
 
-    private func connectorColor(currentState: StepState, nextState: StepState) -> some ShapeStyle {
+    private func connectorColor(currentState: StepState, nextState: StepState) -> AnyShapeStyle {
         if currentState == .completed && nextState == .completed {
             return AnyShapeStyle(Color.cjSuccess)
         } else if currentState == .completed && nextState == .active {
