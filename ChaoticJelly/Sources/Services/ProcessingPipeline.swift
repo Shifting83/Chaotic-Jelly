@@ -73,7 +73,12 @@ actor ProcessingPipeline {
         onProgress?(.init(stage: .processing, progress: 0.3, message: "Processing streams..."))
 
         // 2. Process the file
-        let outputFile = await cacheManager.outputPath(for: cachedFile)
+        // If there's a remux action, use the target container as the output extension
+        let targetExtension: String? = analysisResult.actions.compactMap { action in
+            if case .remuxContainer(_, let to) = action { return to }
+            return nil
+        }.first
+        let outputFile = await cacheManager.outputPath(for: cachedFile, outputExtension: targetExtension)
         let processResult: ProcessResult
         do {
             processResult = try await executeProcessing(
