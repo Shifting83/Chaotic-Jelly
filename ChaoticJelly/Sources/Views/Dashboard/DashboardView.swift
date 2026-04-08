@@ -2,175 +2,248 @@ import SwiftUI
 
 struct DashboardView: View {
     @State var viewModel: DashboardViewModel
+    var onNewScan: () -> Void
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 20) {
-                // Stats Cards
-                HStack(spacing: 16) {
-                    StatCard(
-                        title: "Space Saved",
-                        value: viewModel.totalSpaceSaved.formattedFileSize,
-                        icon: "arrow.down.circle.fill",
-                        color: .green
-                    )
+            VStack(spacing: 16) {
+                // Top row: New Scan CTA + Stat cards
+                topRow
 
-                    StatCard(
-                        title: "Files Processed",
-                        value: "\(viewModel.totalFilesProcessed)",
-                        icon: "doc.circle.fill",
-                        color: .blue
-                    )
-
-                    StatCard(
-                        title: "Cache Usage",
-                        value: viewModel.cacheUsage.formattedFileSize,
-                        icon: "externaldrive.fill",
-                        color: .orange
-                    )
+                // Active job panel (only when processing)
+                if let job = viewModel.activeJob, viewModel.isProcessing {
+                    activeJobPanel(job: job)
                 }
 
-                // Tool Status
-                GroupBox("Tool Status") {
-                    if viewModel.isLoadingTools {
-                        ProgressView()
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                    } else {
-                        VStack(spacing: 8) {
-                            ForEach(viewModel.toolStatuses) { status in
-                                HStack {
-                                    Image(systemName: status.isAvailable ? "checkmark.circle.fill" : "xmark.circle.fill")
-                                        .foregroundStyle(status.isAvailable ? .green : .red)
-
-                                    Text(status.tool.displayName)
-                                        .fontWeight(.medium)
-
-                                    Spacer()
-
-                                    if let path = status.resolvedPath {
-                                        Text(path)
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                            .lineLimit(1)
-                                            .truncationMode(.middle)
-                                    } else {
-                                        Text("Not found")
-                                            .font(.caption)
-                                            .foregroundStyle(.red)
-                                    }
-                                }
-                                .padding(.vertical, 2)
-                            }
-                        }
-                        .padding(8)
-                    }
-                }
-
-                // Recent Jobs
-                GroupBox("Recent Jobs") {
-                    if viewModel.recentJobs.isEmpty {
-                        Text("No jobs yet. Start a scan to begin.")
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                    } else {
-                        VStack(spacing: 4) {
-                            ForEach(viewModel.recentJobs) { job in
-                                JobRowView(job: job)
-                                if job.id != viewModel.recentJobs.last?.id {
-                                    Divider()
-                                }
-                            }
-                        }
-                        .padding(8)
-                    }
-                }
+                // Recent jobs
+                recentJobsPanel
             }
-            .padding()
+            .padding(24)
         }
+        .background(Color.cjBackground)
         .task {
             await viewModel.refresh()
         }
     }
-}
 
-// MARK: - Stat Card
+    // MARK: - Top Row
 
-struct StatCard: View {
-    let title: String
-    let value: String
-    let icon: String
-    let color: Color
+    @ViewBuilder
+    private var topRow: some View {
+        HStack(spacing: 16) {
+            // New Scan CTA
+            Button(action: onNewScan) {
+                HStack(spacing: 16) {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.cjPrimary)
+                        .frame(width: 48, height: 48)
+                        .overlay(
+                            Image(systemName: "folder.badge.plus")
+                                .font(.system(size: 22))
+                                .foregroundStyle(.white)
+                        )
 
-    var body: some View {
-        VStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.title)
-                .foregroundStyle(color)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("New Scan")
+                            .font(.cjPageTitle)
+                            .foregroundStyle(Color.cjTextPrimary)
+                        Text("Scan a folder for video files")
+                            .font(.cjSecondary)
+                            .foregroundStyle(Color.cjTextSecondary)
+                    }
 
-            Text(value)
-                .font(.title2)
-                .fontWeight(.bold)
-                .fontDesign(.rounded)
+                    Spacer()
+                }
+                .padding(20)
+                .cjCard()
+            }
+            .buttonStyle(.plain)
 
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            // Space Saved
+            VStack(spacing: 4) {
+                Text("Space Saved")
+                    .cjSectionLabel()
+                Text(viewModel.totalSpaceSaved.formattedFileSize)
+                    .font(.cjHeroCounter)
+                    .foregroundStyle(Color.cjTextPrimary)
+                    .monospacedDigit()
+                if viewModel.weeklySpaceSaved > 0 {
+                    Text("↑ \(viewModel.weeklySpaceSaved.formattedFileSize) this week")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Color.cjSuccess)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(16)
+            .cjCard()
+
+            // Files Processed
+            VStack(spacing: 4) {
+                Text("Files Processed")
+                    .cjSectionLabel()
+                Text("\(viewModel.totalFilesProcessed)")
+                    .font(.cjHeroCounter)
+                    .foregroundStyle(Color.cjTextPrimary)
+                    .monospacedDigit()
+                Text("across \(viewModel.totalJobCount) jobs")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.cjTextSecondary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(16)
+            .cjCard()
         }
-        .frame(maxWidth: .infinity)
-        .padding()
-        .background(.background.secondary)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    // MARK: - Active Job Panel
+
+    @ViewBuilder
+    private func activeJobPanel(job: Job) -> some View {
+        VStack(spacing: 14) {
+            // Header
+            HStack {
+                HStack(spacing: 10) {
+                    StatusDot(color: .cjPrimary, pulsing: true)
+                    Text("Processing — \(URL(fileURLWithPath: job.sourceFolderPath).lastPathComponent)")
+                        .font(.cjPageTitle)
+                        .foregroundStyle(Color.cjTextPrimary)
+                }
+                Spacer()
+                if let duration = job.duration {
+                    Text(duration.formattedDuration)
+                        .font(.cjSecondary)
+                        .foregroundStyle(Color.cjTextSecondary)
+                }
+            }
+
+            // Progress bar
+            ProgressView(value: job.progressFraction)
+                .tint(Color.cjPrimary)
+
+            // Stats row
+            HStack {
+                HStack(spacing: 20) {
+                    Text("Progress: **\(job.completedFileCount) / \(job.fileCount) files**")
+                        .font(.cjSecondary)
+                        .foregroundStyle(Color.cjTextSecondary)
+
+                    if let currentFile = job.files.first(where: { $0.fileStatus == .processing }) {
+                        Text("Current: **\(currentFile.fileName)**")
+                            .font(.cjSecondary)
+                            .foregroundStyle(Color.cjTextSecondary)
+                            .lineLimit(1)
+                    }
+                }
+                Spacer()
+                if job.bytesSaved > 0 {
+                    Text("↓ \(job.bytesSaved.formattedFileSize) saved")
+                        .font(.cjSecondary)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(Color.cjSuccess)
+                }
+            }
+        }
+        .padding(20)
+        .cjCard()
+    }
+
+    // MARK: - Recent Jobs
+
+    @ViewBuilder
+    private var recentJobsPanel: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Recent Jobs")
+                .font(.cjSectionHeader)
+                .foregroundStyle(Color.cjTextPrimary)
+                .padding(.horizontal, 20)
+                .padding(.top, 20)
+
+            if viewModel.recentJobs.isEmpty {
+                CJEmptyStateView(
+                    icon: "📁",
+                    title: "No scans yet",
+                    message: "Scan a folder to find video files to clean up",
+                    actionTitle: "New Scan",
+                    action: onNewScan
+                )
+                .frame(height: 200)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(viewModel.recentJobs.enumerated()), id: \.element.id) { index, job in
+                        DashboardJobRow(job: job)
+                        if index < viewModel.recentJobs.count - 1 {
+                            Divider()
+                                .padding(.horizontal, 16)
+                        }
+                    }
+                }
+                .padding(.bottom, 12)
+            }
+        }
+        .cjCard()
     }
 }
 
-// MARK: - Job Row
+// MARK: - Dashboard Job Row
 
-struct JobRowView: View {
+struct DashboardJobRow: View {
     let job: Job
 
     var body: some View {
         HStack {
-            Image(systemName: job.jobStatus.systemImage)
-                .foregroundStyle(statusColor)
-
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(URL(fileURLWithPath: job.sourceFolderPath).lastPathComponent)
+                    .font(.cjBody)
                     .fontWeight(.medium)
+                    .foregroundStyle(Color.cjTextPrimary)
                     .lineLimit(1)
 
-                Text("\(job.fileCount) files \(job.createdAt.relativeString)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Text("\(job.fileCount) files · \(job.bytesSaved.formattedFileSize) saved · \(job.duration?.formattedDuration ?? "—")")
+                    .font(.cjSecondary)
+                    .foregroundStyle(Color.cjTextSecondary)
             }
 
             Spacer()
 
-            if job.bytesSaved > 0 {
-                Text("-\(job.bytesSaved.formattedFileSize)")
-                    .font(.caption)
-                    .foregroundStyle(.green)
-                    .fontWeight(.medium)
-            }
+            Text(job.createdAt.relativeString)
+                .font(.cjSecondary)
+                .foregroundStyle(Color.cjTextSecondary)
 
-            Text(job.jobStatus.displayName)
-                .font(.caption)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 2)
-                .background(statusColor.opacity(0.15))
-                .clipShape(Capsule())
+            JobStatusBadge(status: job.jobStatus)
         }
-        .padding(.vertical, 4)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+    }
+}
+
+struct JobStatusBadge: View {
+    let status: JobStatus
+
+    var body: some View {
+        Text(status.displayName)
+            .font(.system(size: 11, weight: .medium))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 2)
+            .background(badgeBackground)
+            .foregroundStyle(badgeColor)
+            .clipShape(RoundedRectangle(cornerRadius: 4))
     }
 
-    private var statusColor: Color {
-        switch job.jobStatus {
-        case .completed: return .green
-        case .failed: return .red
-        case .cancelled: return .orange
-        case .processing, .scanning, .analyzing: return .blue
-        default: return .secondary
+    private var badgeColor: Color {
+        switch status {
+        case .completed: return .cjSuccess
+        case .failed: return .cjError
+        case .cancelled: return .cjWarning
+        default: return .cjTextSecondary
+        }
+    }
+
+    private var badgeBackground: Color {
+        switch status {
+        case .completed: return Color.cjSuccess.opacity(0.12)
+        case .failed: return Color.cjError.opacity(0.12)
+        case .cancelled: return Color.cjWarning.opacity(0.12)
+        default: return Color.cjTextSecondary.opacity(0.12)
         }
     }
 }
