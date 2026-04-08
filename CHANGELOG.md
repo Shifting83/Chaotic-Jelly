@@ -272,3 +272,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Align *arr instance picker layout in scan view (#24) (1e86840)
 
 [0.3.27]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.27
+
+## [0.3.28] - 2026-04-08
+
+### Changes
+- chore: add repo constants to trigger release build (f18d444)
+- chore: trigger v0.3.28 release build (771b64d)
+- chore: trigger release build [skip version check] (568b975)
+- Implement Jellyfin optimization analysis (was never wired up) (#25) (e9a4c1e)
+
+[0.3.28]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.3.28
