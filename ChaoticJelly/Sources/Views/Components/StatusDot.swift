@@ -18,6 +18,7 @@ struct StatusDot: View {
             .onChange(of: pulsing) { _, newValue in
                 isAnimating = newValue
             }
+    }
 }
 
 extension StatusDot {
