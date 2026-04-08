@@ -7,16 +7,28 @@ struct ScanView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            // Show stepper when scan is active or complete
+            if viewModel.isScanning || viewModel.isAnalyzing || viewModel.isProcessing ||
+               (viewModel.currentJob?.jobStatus == .reviewing) {
+                WorkflowStepper(
+                    currentStep: .scan,
+                    scanSummary: viewModel.currentJob.map { "\($0.files.count) files" }
+                )
+                .padding(.horizontal, 24)
+                .padding(.top, 16)
+                .padding(.bottom, 8)
+            }
+
             if viewModel.isScanning || viewModel.isAnalyzing || viewModel.isProcessing {
                 progressView
             } else if let job = viewModel.currentJob, job.jobStatus == .reviewing {
-                // Analysis complete — prompt review
                 analysisCompleteView(job: job)
             } else {
                 configurationView
             }
         }
         .padding()
+        .background(Color.cjBackground)
     }
 
     // MARK: - Configuration

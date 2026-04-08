@@ -11,7 +11,7 @@ struct SettingsView: View {
         case jellyfin = "Jellyfin"
         case tools = "Tools"
         case cache = "Cache"
-        case arr = "Sonarr / Radarr"
+        case arr = "Arr"
         case updates = "Updates"
 
         var systemImage: String {
@@ -21,7 +21,7 @@ struct SettingsView: View {
             case .jellyfin: return "play.rectangle"
             case .tools: return "wrench.and.screwdriver"
             case .cache: return "externaldrive"
-            case .arr: return "arrow.clockwise.circle"
+            case .arr: return "antenna.radiowaves.left.and.right"
             case .updates: return "arrow.triangle.2.circlepath"
             }
         }
@@ -50,14 +50,14 @@ struct SettingsView: View {
                 .tag(SettingsTab.cache)
 
             ArrSettingsView(settings: container.settings, arrService: container.arrService)
-                .tabItem { Label("Sonarr / Radarr", systemImage: "arrow.clockwise.circle") }
+                .tabItem { Label("Arr", systemImage: "antenna.radiowaves.left.and.right") }
                 .tag(SettingsTab.arr)
 
             UpdateSettingsView(settings: container.settings, updateService: container.updateService)
                 .tabItem { Label("Updates", systemImage: "arrow.triangle.2.circlepath") }
                 .tag(SettingsTab.updates)
         }
-        .frame(width: 600, height: 450)
+        .frame(minWidth: 550)
     }
 }
 

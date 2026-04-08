@@ -139,6 +139,7 @@ enum PlannedAction: Codable, Equatable, Sendable, Identifiable {
         switch self {
         case .removeStream: return true
         case .transcodeVideo, .transcodeAudio: return true
+        case .remuxContainer: return true
         default: return false
         }
     }

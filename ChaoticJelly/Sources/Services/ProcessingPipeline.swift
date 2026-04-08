@@ -73,7 +73,12 @@ actor ProcessingPipeline {
         onProgress?(.init(stage: .processing, progress: 0.3, message: "Processing streams..."))
 
         // 2. Process the file
-        let outputFile = await cacheManager.outputPath(for: cachedFile)
+        // If there's a remux action, use the target container as the output extension
+        let targetExtension: String? = analysisResult.actions.compactMap { action in
+            if case .remuxContainer(_, let to) = action { return to }
+            return nil
+        }.first
+        let outputFile = await cacheManager.outputPath(for: cachedFile, outputExtension: targetExtension)
         let processResult: ProcessResult
         do {
             processResult = try await executeProcessing(
@@ -129,12 +134,25 @@ actor ProcessingPipeline {
 
         // 5. Replace the original
         let outputSize = fileSize(at: outputFile)
+        var finalDestination = sourceURL
         do {
             try await replaceOriginal(
                 source: outputFile,
                 destination: sourceURL,
                 createBackup: jobSettings.createBackup
             )
+
+            // If the container was remuxed, rename to the new extension
+            // (e.g. .avi → .mp4) so players detect the correct format
+            if let targetExt = targetExtension {
+                let currentExt = sourceURL.pathExtension.lowercased()
+                if currentExt != targetExt.lowercased() {
+                    let newURL = sourceURL.deletingPathExtension().appendingPathExtension(targetExt)
+                    try FileManager.default.moveItem(at: sourceURL, to: newURL)
+                    finalDestination = newURL
+                    await logger.logDiagnostic("Renamed \(sourceURL.lastPathComponent) → \(newURL.lastPathComponent)")
+                }
+            }
         } catch {
             await cacheManager.cleanFileCache(jobID: jobID, fileID: fileID)
             await logger.logError("Replace failed for \(sourceURL.lastPathComponent): \(error.localizedDescription)")
