@@ -33,12 +33,14 @@ final class DashboardViewModel {
         recentJobs = Array(jobs.prefix(5))
         totalSpaceSaved = container.jobManager.totalSpaceSaved()
         totalJobCount = jobs.count
-        totalFilesProcessed = jobs
-            .flatMap(\.files)
-            .filter { $0.fileStatus == .completed }
-            .count
 
-        // Weekly savings
+        // Compute synchronous SwiftData work before any await
+        var filesProcessed = 0
+        for job in jobs {
+            filesProcessed += job.files.filter { $0.fileStatus == .completed }.count
+        }
+        totalFilesProcessed = filesProcessed
+
         let oneWeekAgo = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
         weeklySpaceSaved = jobs
             .filter { ($0.completedAt ?? $0.createdAt) >= oneWeekAgo }
