@@ -5,6 +5,8 @@ enum Constants {
     static let bundleIdentifier = "com.chaoticjelly.app"
     static let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.1.0"
     static let buildNumber = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
+    static let repoOwner = "Shifting83"
+    static let repoName = "Chaotic-Jelly"
 
     enum Defaults {
         static let keepLanguages = ["eng"]
