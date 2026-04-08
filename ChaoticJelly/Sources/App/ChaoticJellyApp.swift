@@ -6,6 +6,7 @@ struct ChaoticJellyApp: App {
     let modelContainer: ModelContainer
     @State private var serviceContainer: ServiceContainer?
     @State private var showUpdateAlert = false
+    @State private var showWizard = false
 
     init() {
         do {
@@ -37,6 +38,11 @@ struct ChaoticJellyApp: App {
                     let container = ServiceContainer(modelContext: context)
                     serviceContainer = container
 
+                    // Show wizard on first run
+                    if !UserDefaults.standard.bool(forKey: "hasCompletedFirstRun") {
+                        showWizard = true
+                    }
+
                     // Recover interrupted jobs on startup
                     await container.jobManager.recoverInterruptedJobs()
 
@@ -45,6 +51,16 @@ struct ChaoticJellyApp: App {
                     if container.updateService.updateAvailable {
                         showUpdateAlert = true
                     }
+                }
+            }
+            .sheet(isPresented: $showWizard) {
+                if let container = serviceContainer {
+                    FirstRunWizardView(
+                        container: container,
+                        onComplete: { showWizard = false },
+                        onStartScan: { showWizard = false }
+                    )
+                    .interactiveDismissDisabled()
                 }
             }
             .alert("Update Available",
