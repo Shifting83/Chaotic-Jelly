@@ -60,7 +60,9 @@ struct ContentView: View {
                 // Workflow section
                 Section("Workflow") {
                     ForEach(NavigationItem.workflowItems) { item in
-                        sidebarRow(item: item)
+                        Label(item.rawValue, systemImage: item.systemImage)
+                            .tag(item)
+                            .badge(badgeFor(item))
                     }
                 }
 
@@ -87,27 +89,17 @@ struct ContentView: View {
         }
     }
 
-    @ViewBuilder
-    private func sidebarRow(item: NavigationItem) -> some View {
+    private func badgeFor(_ item: NavigationItem) -> Text? {
         switch item {
         case .review:
             let count = reviewVM?.job?.files.filter({ $0.fileStatus == .analyzed }).count ?? 0
-            Label(item.rawValue, systemImage: item.systemImage)
-                .tag(item)
-                .badge(count > 0 ? count : 0)
+            return count > 0 ? Text("\(count)") : nil
         case .processing:
-            Label(item.rawValue, systemImage: item.systemImage)
-                .tag(item)
-                .badge(processingBadge)
+            guard let job = container.jobManager.activeJob else { return nil }
+            return Text("\(job.completedFileCount)/\(job.fileCount)")
         default:
-            Label(item.rawValue, systemImage: item.systemImage)
-                .tag(item)
+            return nil
         }
-    }
-
-    private var processingBadge: Text? {
-        guard let job = container.jobManager.activeJob else { return nil }
-        return Text("\(job.completedFileCount)/\(job.fileCount)")
     }
 
     @ViewBuilder
