@@ -3,38 +3,42 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
-	<string>en</string>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleDisplayName</key>
+	<string>Chaotic Jelly</string>
 	<key>CFBundleExecutable</key>
-	<string>$(EXECUTABLE_NAME)</string>
+	<string>Chaotic Jelly</string>
+	<key>CFBundleHelpBookFolder</key>
+	<string>ChaoticJelly.help</string>
+	<key>CFBundleHelpBookName</key>
+	<string>Chaotic Jelly Help</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIconName</key>
+	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
-	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<string>com.chaoticjelly.app</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
 	<string>Chaotic Jelly</string>
-	<key>CFBundleDisplayName</key>
-	<string>Chaotic Jelly</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>$(MARKETING_VERSION)</string>
+	<string>0.3.31</string>
 	<key>CFBundleVersion</key>
-	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<string>38</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
 	<key>LSMinimumSystemVersion</key>
-	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
+	<string>14.0</string>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright 2026 Chaotic Jelly. All rights reserved.</string>
+	<string>Copyright 2026 Chaotic Jelly</string>
 	<key>NSMainStoryboardFile</key>
 	<string></string>
 	<key>SUFeedURL</key>
 	<string></string>
 	<key>SUPublicEDKey</key>
 	<string></string>
-	<key>CFBundleHelpBookFolder</key>
-	<string>ChaoticJelly.help</string>
-	<key>CFBundleHelpBookName</key>
-	<string>com.chaoticjelly.app.help</string>
 </dict>
 </plist>
