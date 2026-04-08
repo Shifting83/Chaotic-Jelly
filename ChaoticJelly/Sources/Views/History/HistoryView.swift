@@ -2,84 +2,78 @@ import SwiftUI
 
 struct HistoryView: View {
     @State var viewModel: HistoryViewModel
-    @State private var selectedJob: Job?
     @State private var showDeleteConfirmation = false
     @State private var jobToDelete: Job?
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header stats
-            HStack(spacing: 20) {
-                StatCard(
-                    title: "Total Jobs",
-                    value: "\(viewModel.jobs.count)",
-                    icon: "number",
-                    color: .blue
-                )
-                StatCard(
-                    title: "Total Space Saved",
-                    value: viewModel.totalSpaceSaved.formattedFileSize,
-                    icon: "arrow.down.circle.fill",
-                    color: .green
-                )
+            // Summary stats
+            HStack(spacing: 12) {
+                miniStat(value: "\(viewModel.jobs.count)", label: "Total Jobs")
+                miniStat(value: viewModel.totalSpaceSaved.formattedFileSize, label: "Total Saved", color: .cjSuccess)
+                miniStat(value: "\(viewModel.jobs.flatMap(\.files).filter { $0.fileStatus == .completed }.count)", label: "Files Processed")
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 20)
+            .padding(.bottom, 12)
+
+            // Filter toolbar
+            HStack(spacing: 10) {
+                SearchField(text: $viewModel.searchText, placeholder: "Search jobs...")
+
+                HStack(spacing: 4) {
+                    FilterPill(label: "All", value: nil as JobStatus?, selection: $viewModel.filterStatus)
+                    FilterPill(label: "Completed", value: .completed, selection: $viewModel.filterStatus)
+                    FilterPill(label: "Failed", value: .failed, selection: $viewModel.filterStatus, labelColor: .cjError)
+                    FilterPill(label: "Cancelled", value: .cancelled, selection: $viewModel.filterStatus)
+                }
 
                 Spacer()
-
-                // Search and filter
-                HStack {
-                    HStack {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundStyle(.secondary)
-                        TextField("Search...", text: $viewModel.searchText)
-                            .textFieldStyle(.plain)
-                    }
-                    .padding(6)
-                    .background(.background.secondary)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                    .frame(maxWidth: 200)
-
-                    Picker("Status", selection: Binding(
-                        get: { viewModel.filterStatus },
-                        set: { viewModel.filterStatus = $0 }
-                    )) {
-                        Text("All").tag(nil as JobStatus?)
-                        ForEach(JobStatus.allCases, id: \.self) { status in
-                            Text(status.displayName).tag(status as JobStatus?)
-                        }
-                    }
-                    .frame(width: 130)
-                }
             }
-            .padding()
-
-            Divider()
+            .padding(.horizontal, 24)
+            .padding(.bottom, 12)
 
             // Job list
             if viewModel.filteredJobs.isEmpty {
-                ContentUnavailableView(
-                    "No Jobs",
-                    systemImage: "clock.arrow.circlepath",
-                    description: Text(viewModel.jobs.isEmpty ? "Run your first scan to start building history." : "No jobs match your filters.")
+                CJEmptyStateView(
+                    icon: "📋",
+                    title: viewModel.jobs.isEmpty ? "No history yet" : "No matching jobs",
+                    message: viewModel.jobs.isEmpty ? "Completed jobs will appear here" : "Try adjusting your filters"
                 )
             } else {
-                List(viewModel.filteredJobs, selection: $selectedJob) { job in
-                    HistoryJobRow(job: job)
-                        .contextMenu {
-                            if job.failedFileCount > 0 {
-                                Button("Retry Failed Files") {
-                                    Task { await viewModel.retryJob(job) }
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(Array(viewModel.filteredJobs.enumerated()), id: \.element.id) { index, job in
+                            ExpandableRow {
+                                historyRowHeader(job: job)
+                            } detail: {
+                                historyRowDetail(job: job)
+                            }
+                            .contextMenu {
+                                if job.failedFileCount > 0 {
+                                    Button("Retry Failed Files") {
+                                        Task { await viewModel.retryJob(job) }
+                                    }
+                                }
+                                Divider()
+                                Button("Delete", role: .destructive) {
+                                    jobToDelete = job
+                                    showDeleteConfirmation = true
                                 }
                             }
-                            Divider()
-                            Button("Delete", role: .destructive) {
-                                jobToDelete = job
-                                showDeleteConfirmation = true
+
+                            if index < viewModel.filteredJobs.count - 1 {
+                                Divider().padding(.horizontal, 16)
                             }
                         }
+                    }
+                    .cjCard()
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 24)
                 }
-                .listStyle(.inset(alternatesRowBackgrounds: true))
             }
         }
+        .background(Color.cjBackground)
         .task { viewModel.refresh() }
         .confirmationDialog(
             "Delete Job",
@@ -89,70 +83,104 @@ struct HistoryView: View {
             Button("Delete", role: .destructive) {
                 viewModel.deleteJob(job)
             }
-        } message: { job in
+        } message: { _ in
             Text("Delete this job and all its history? This cannot be undone.")
         }
     }
-}
 
-struct HistoryJobRow: View {
-    let job: Job
-
-    var body: some View {
+    @ViewBuilder
+    private func miniStat(value: String, label: String, color: Color = .cjTextPrimary) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: job.jobStatus.systemImage)
-                .font(.title3)
-                .foregroundStyle(statusColor)
-                .frame(width: 28)
+            Text(value)
+                .font(.system(size: 20, weight: .bold))
+                .foregroundStyle(color)
+                .monospacedDigit()
+            Text(label)
+                .font(.cjSecondary)
+                .foregroundStyle(Color.cjTextSecondary)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cjCard()
+    }
 
-            VStack(alignment: .leading, spacing: 4) {
+    @ViewBuilder
+    private func historyRowHeader(job: Job) -> some View {
+        HStack(spacing: 10) {
+            StatusDot.forJobStatus(job.jobStatus)
+
+            VStack(alignment: .leading, spacing: 2) {
                 Text(URL(fileURLWithPath: job.sourceFolderPath).lastPathComponent)
+                    .font(.cjBody)
                     .fontWeight(.medium)
+                    .foregroundStyle(Color.cjTextPrimary)
+                    .lineLimit(1)
 
-                HStack(spacing: 12) {
-                    Label("\(job.fileCount) files", systemImage: "doc")
-                    Label(job.processingMode.displayName, systemImage: "gearshape")
-
-                    if let duration = job.duration {
-                        Label(duration.formattedDuration, systemImage: "clock")
-                    }
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                Text("\(job.fileCount) files · \(job.processingMode.displayName) · \(job.duration?.formattedDuration ?? "—")")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.cjTextSecondary)
             }
 
             Spacer()
 
-            VStack(alignment: .trailing, spacing: 4) {
-                if job.bytesSaved > 0 {
-                    Text("-\(job.bytesSaved.formattedFileSize)")
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.green)
-                }
-
-                Text(job.createdAt.shortString)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            if job.bytesSaved > 0 {
+                Text("-\(job.bytesSaved.formattedFileSize)")
+                    .font(.cjSecondary)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(Color.cjSuccess)
+            } else if job.failedFileCount > 0 {
+                Text("\(job.failedFileCount) failed")
+                    .font(.cjSecondary)
+                    .fontWeight(.medium)
+                    .foregroundStyle(Color.cjError)
             }
 
-            Text(job.jobStatus.displayName)
-                .font(.caption)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(statusColor.opacity(0.15))
-                .clipShape(Capsule())
-                .frame(width: 80)
+            Text(job.createdAt.relativeString)
+                .font(.cjSecondary)
+                .foregroundStyle(Color.cjTextSecondary)
         }
-        .padding(.vertical, 4)
     }
 
-    private var statusColor: Color {
-        switch job.jobStatus {
-        case .completed: return .green
-        case .failed: return .red
-        case .cancelled: return .orange
-        case .processing, .scanning, .analyzing: return .blue
-        default: return .secondary
+    @ViewBuilder
+    private func historyRowDetail(job: Job) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 20) {
+                Text("✓ \(job.files.filter { $0.fileStatus == .completed }.count) completed")
+                    .font(.cjSecondary)
+                    .foregroundStyle(Color.cjTextSecondary)
+                if job.failedFileCount > 0 {
+                    Text("✕ \(job.failedFileCount) failed")
+                        .font(.cjSecondary)
+                        .foregroundStyle(Color.cjError)
+                }
+            }
+
+            ForEach(Array(job.files.prefix(5).enumerated()), id: \.element.id) { _, file in
+                HStack {
+                    Text(file.fileName)
+                        .font(.cjSecondary)
+                        .foregroundStyle(file.fileStatus == .failed ? Color.cjError : Color.cjTextPrimary)
+                        .lineLimit(1)
+                    Spacer()
+                    if file.fileStatus == .completed && file.bytesSaved > 0 {
+                        Text("-\(file.bytesSaved.formattedFileSize)")
+                            .font(.cjSecondary)
+                            .foregroundStyle(Color.cjSuccess)
+                    } else if file.fileStatus == .failed {
+                        Text(file.errorMessage ?? "Error")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Color.cjError)
+                            .lineLimit(1)
+                    }
+                }
+            }
+
+            if job.files.count > 5 {
+                Text("Show all \(job.files.count) files →")
+                    .font(.cjSecondary)
+                    .foregroundStyle(Color.cjPrimary)
+            }
         }
     }
 }

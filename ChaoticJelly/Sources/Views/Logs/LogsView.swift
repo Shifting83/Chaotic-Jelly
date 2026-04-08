@@ -3,42 +3,25 @@ import AppKit
 
 struct LogsView: View {
     @State var viewModel: LogsViewModel
-    @State private var showExportSheet = false
 
     var body: some View {
         VStack(spacing: 0) {
             // Toolbar
-            HStack {
-                // Search
-                HStack {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundStyle(.secondary)
-                    TextField("Search logs...", text: $viewModel.searchText)
-                        .textFieldStyle(.plain)
-                }
-                .padding(6)
-                .background(.background.secondary)
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-                .frame(maxWidth: 250)
+            HStack(spacing: 10) {
+                SearchField(text: $viewModel.searchText, placeholder: "Filter logs...")
 
-                // Level filter
-                Picker("Level", selection: Binding(
-                    get: { viewModel.filterLevel },
-                    set: { viewModel.filterLevel = $0 }
-                )) {
-                    Text("All Levels").tag(nil as LogLevel?)
-                    ForEach(LogLevel.allCases, id: \.self) { level in
-                        Label(level.displayName, systemImage: level.systemImage)
-                            .tag(level as LogLevel?)
-                    }
+                HStack(spacing: 4) {
+                    FilterPill(label: "All", value: nil as LogLevel?, selection: $viewModel.filterLevel)
+                    FilterPill(label: "Info", value: .info, selection: $viewModel.filterLevel)
+                    FilterPill(label: "Warning", value: .warning, selection: $viewModel.filterLevel, labelColor: .cjWarning)
+                    FilterPill(label: "Error", value: .error, selection: $viewModel.filterLevel, labelColor: .cjError)
                 }
-                .frame(width: 130)
-
-                Toggle("Show Diagnostic", isOn: $viewModel.showDiagnostic)
-                    .toggleStyle(.switch)
-                    .controlSize(.small)
 
                 Spacer()
+
+                Toggle("Diagnostics", isOn: $viewModel.showDiagnostic)
+                    .toggleStyle(.checkbox)
+                    .font(.cjSecondary)
 
                 Button {
                     Task {
@@ -47,35 +30,59 @@ struct LogsView: View {
                         }
                     }
                 } label: {
-                    Label("Export", systemImage: "square.and.arrow.up")
+                    Text("Export")
+                        .font(.cjSecondary)
                 }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
 
                 Button(role: .destructive) {
                     Task { await viewModel.clearLogs() }
                 } label: {
-                    Label("Clear", systemImage: "trash")
+                    Text("Clear")
+                        .font(.cjSecondary)
                 }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
             }
-            .padding(.horizontal)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 10)
 
-            Divider()
-
-            // Log entries
+            // Log panel (dark terminal)
             if viewModel.filteredEntries.isEmpty {
-                ContentUnavailableView(
-                    "No Log Entries",
-                    systemImage: "doc.plaintext",
-                    description: Text("Log entries will appear here as the app runs.")
+                CJEmptyStateView(
+                    icon: "📝",
+                    title: "No logs yet",
+                    message: "Logs will appear when you start processing"
                 )
             } else {
-                List(viewModel.filteredEntries) { entry in
-                    LogEntryRow(entry: entry)
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 1) {
+                            ForEach(viewModel.filteredEntries) { entry in
+                                logEntryRow(entry: entry)
+                                    .id(entry.id)
+                            }
+                        }
+                        .padding(12)
+                    }
+                    .background(Color.cjLogTerminal)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color(white: 0.2), lineWidth: 1)
+                    )
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 24)
+                    .onChange(of: viewModel.filteredEntries.count) {
+                        if let last = viewModel.filteredEntries.last {
+                            proxy.scrollTo(last.id, anchor: .bottom)
+                        }
+                    }
                 }
-                .listStyle(.inset(alternatesRowBackgrounds: true))
-                .font(.system(.caption, design: .monospaced))
             }
         }
+        .background(Color.cjBackground)
         .task {
             await viewModel.refresh()
         }
@@ -83,40 +90,43 @@ struct LogsView: View {
             Task { await viewModel.refresh() }
         }
     }
-}
 
-struct LogEntryRow: View {
-    let entry: LogEntry
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: entry.level.systemImage)
-                .foregroundStyle(levelColor)
-                .frame(width: 16)
-
-            Text(entry.timestamp, style: .time)
-                .foregroundStyle(.secondary)
-                .frame(width: 70, alignment: .leading)
+    @ViewBuilder
+    private func logEntryRow(entry: LogEntry) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Text(entry.timestamp, format: .dateTime.hour().minute().second())
+                .foregroundStyle(Color(white: 0.4))
+                .frame(width: 72, alignment: .leading)
 
             Text(entry.level.rawValue.uppercased())
-                .foregroundStyle(levelColor)
                 .fontWeight(.medium)
-                .frame(width: 80, alignment: .leading)
+                .foregroundStyle(logLevelColor(entry.level))
+                .frame(width: 52, alignment: .leading)
 
             Text(entry.message)
-                .foregroundStyle(.primary)
-                .lineLimit(3)
+                .foregroundStyle(logMessageColor(entry.level))
                 .textSelection(.enabled)
+                .lineLimit(3)
         }
+        .font(.cjLogText)
         .padding(.vertical, 1)
     }
 
-    private var levelColor: Color {
-        switch entry.level {
-        case .info: return .blue
-        case .warning: return .orange
-        case .error: return .red
-        case .diagnostic: return .secondary
+    private func logLevelColor(_ level: LogLevel) -> Color {
+        switch level {
+        case .info: return .cjLogInfo
+        case .warning: return .cjLogWarn
+        case .error: return .cjLogError
+        case .diagnostic: return Color(white: 0.5)
+        }
+    }
+
+    private func logMessageColor(_ level: LogLevel) -> Color {
+        switch level {
+        case .info: return Color(white: 0.83)
+        case .warning: return .cjLogWarn
+        case .error: return .cjLogError
+        case .diagnostic: return Color(white: 0.5)
         }
     }
 }
