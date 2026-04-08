@@ -94,8 +94,7 @@ struct ContentView: View {
                 .tag(item)
                 .badge(count > 0 ? count : 0)
         case .processing:
-            let vm = QueueViewModel(container: container)
-            if let job = vm.activeJob {
+            if let job = container.jobManager.activeJob {
                 Label(item.rawValue, systemImage: item.systemImage)
                     .tag(item)
                     .badge("\(job.completedFileCount)/\(job.fileCount)")

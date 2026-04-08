@@ -1,7 +1,7 @@
 import Foundation
 import SwiftUI
 
-@Observable
+@MainActor @Observable
 final class DashboardViewModel {
     private let container: ServiceContainer
 
@@ -28,7 +28,6 @@ final class DashboardViewModel {
         container.jobManager.currentFileProgress
     }
 
-    @MainActor
     func refresh() async {
         let jobs = container.jobManager.fetchJobs()
         recentJobs = Array(jobs.prefix(5))
