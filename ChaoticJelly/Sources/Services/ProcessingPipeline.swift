@@ -134,12 +134,25 @@ actor ProcessingPipeline {
 
         // 5. Replace the original
         let outputSize = fileSize(at: outputFile)
+        var finalDestination = sourceURL
         do {
             try await replaceOriginal(
                 source: outputFile,
                 destination: sourceURL,
                 createBackup: jobSettings.createBackup
             )
+
+            // If the container was remuxed, rename to the new extension
+            // (e.g. .avi → .mp4) so players detect the correct format
+            if let targetExt = targetExtension {
+                let currentExt = sourceURL.pathExtension.lowercased()
+                if currentExt != targetExt.lowercased() {
+                    let newURL = sourceURL.deletingPathExtension().appendingPathExtension(targetExt)
+                    try FileManager.default.moveItem(at: sourceURL, to: newURL)
+                    finalDestination = newURL
+                    await logger.logDiagnostic("Renamed \(sourceURL.lastPathComponent) → \(newURL.lastPathComponent)")
+                }
+            }
         } catch {
             await cacheManager.cleanFileCache(jobID: jobID, fileID: fileID)
             await logger.logError("Replace failed for \(sourceURL.lastPathComponent): \(error.localizedDescription)")
