@@ -336,3 +336,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix processing progress, sidebar navigation, and UX polish (#27) (93f43cb)
 
 [0.4.1]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.4.1
+
+## [0.4.2] - 2026-04-08
+
+### Changes
+- Fix sidebar Review/Processing items unclickable (#29) (fd75e51)
+
+[0.4.2]: https://github.com/Shifting83/Chaotic-Jelly/releases/tag/v0.4.2
