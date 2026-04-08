@@ -4,31 +4,36 @@ struct ReviewView: View {
     @State var viewModel: ReviewViewModel
     let onStartProcessing: () -> Void
     @State private var showConfirmation = false
-    @State private var selectedFile: FileEntry?
 
     var body: some View {
         if viewModel.job == nil {
-            ContentUnavailableView(
-                "No Scan Results",
-                systemImage: "checklist",
-                description: Text("Run a scan first to review results here.")
+            CJEmptyStateView(
+                icon: "🔍",
+                title: "Nothing to review",
+                message: "Run a scan to analyze files before processing"
             )
         } else {
             VStack(spacing: 0) {
+                // Workflow stepper
+                WorkflowStepper(
+                    currentStep: .review,
+                    scanSummary: "\(viewModel.summary.totalFiles) files found",
+                    reviewSummary: "\(viewModel.summary.filesToProcess) to process"
+                )
+                .padding(.horizontal, 24)
+                .padding(.top, 16)
+                .padding(.bottom, 8)
+
                 // Summary bar
                 summaryBar
 
-                Divider()
-
-                // Toolbar
-                toolbar
+                // Filter toolbar
+                filterToolbar
 
                 // File list
                 fileList
             }
-            .sheet(item: $selectedFile) { file in
-                FileDetailSheet(file: file)
-            }
+            .background(Color.cjBackground)
             .confirmationDialog(
                 "Start Processing",
                 isPresented: $showConfirmation,
@@ -52,311 +57,198 @@ struct ReviewView: View {
     @ViewBuilder
     private var summaryBar: some View {
         HStack(spacing: 20) {
-            SummaryPill(label: "Total", value: "\(viewModel.summary.totalFiles)", color: .primary)
-            SummaryPill(label: "To Process", value: "\(viewModel.summary.filesToProcess)", color: .blue)
-            SummaryPill(label: "Skipped", value: "\(viewModel.summary.filesToSkip)", color: .secondary)
-            SummaryPill(label: "Failed", value: "\(viewModel.summary.filesFailed)", color: .red)
-            SummaryPill(label: "Streams to Remove", value: "\(viewModel.summary.totalStreamsToRemove)", color: .orange)
-            SummaryPill(label: "Est. Savings", value: viewModel.summary.estimatedSavingsBytes.formattedFileSize, color: .green)
+            HStack(spacing: 16) {
+                Text("**\(viewModel.summary.totalFiles)** total")
+                    .font(.cjSecondary)
+                Text("**\(viewModel.summary.filesToProcess)** to process")
+                    .font(.cjSecondary)
+                    .foregroundStyle(Color.cjPrimary)
+                Text("**\(viewModel.summary.filesToSkip)** skipped")
+                    .font(.cjSecondary)
+                    .foregroundStyle(Color.cjTextSecondary)
+                if viewModel.summary.warningCount > 0 {
+                    Text("**\(viewModel.summary.warningCount)** warnings")
+                        .font(.cjSecondary)
+                        .foregroundStyle(Color.cjWarning)
+                }
+            }
 
             Spacer()
+
+            Text("Est. savings: \(viewModel.summary.estimatedSavingsBytes.formattedFileSize)")
+                .font(.cjSecondary)
+                .fontWeight(.semibold)
+                .foregroundStyle(Color.cjSuccess)
 
             if viewModel.summary.filesToProcess > 0 {
-                Button(action: { showConfirmation = true }) {
-                    Label("Start Processing", systemImage: "play.fill")
+                Button("Start Processing") {
+                    showConfirmation = true
                 }
                 .buttonStyle(.borderedProminent)
-                .controlSize(.large)
+                .controlSize(.regular)
             }
         }
-        .padding()
-        .background(.background.secondary)
+        .padding(.horizontal, 24)
+        .padding(.vertical, 12)
+        .cjCard()
+        .padding(.horizontal, 24)
+        .padding(.bottom, 8)
     }
 
-    // MARK: - Toolbar
+    // MARK: - Filter Toolbar
 
     @ViewBuilder
-    private var toolbar: some View {
-        HStack {
-            // Search
-            HStack {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(.secondary)
-                TextField("Search files...", text: $viewModel.searchText)
-                    .textFieldStyle(.plain)
-            }
-            .padding(6)
-            .background(.background.secondary)
-            .clipShape(RoundedRectangle(cornerRadius: 6))
-            .frame(maxWidth: 250)
+    private var filterToolbar: some View {
+        HStack(spacing: 10) {
+            SearchField(text: $viewModel.searchText, placeholder: "Search files...")
 
-            // Filter
-            Picker("Status", selection: Binding(
-                get: { viewModel.filterStatus },
-                set: { viewModel.filterStatus = $0 }
-            )) {
-                Text("All").tag(nil as FileStatus?)
-                ForEach(FileStatus.allCases, id: \.self) { status in
-                    Text(status.displayName).tag(status as FileStatus?)
-                }
+            HStack(spacing: 4) {
+                FilterPill(label: "All", value: nil as FileStatus?, selection: $viewModel.filterStatus)
+                FilterPill(label: "To Process", value: .analyzed, selection: $viewModel.filterStatus)
+                FilterPill(label: "Skipped", value: .skipped, selection: $viewModel.filterStatus)
             }
-            .frame(width: 120)
-
-            // Sort
-            Picker("Sort", selection: $viewModel.sortOrder) {
-                ForEach(ReviewViewModel.SortOrder.allCases, id: \.self) { order in
-                    Text(order.rawValue).tag(order)
-                }
-            }
-            .frame(width: 120)
 
             Spacer()
         }
-        .padding(.horizontal)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 24)
+        .padding(.bottom, 8)
     }
 
     // MARK: - File List
 
     @ViewBuilder
     private var fileList: some View {
-        List(viewModel.filteredFiles) { file in
-            FileReviewRow(file: file)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    selectedFile = file
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                ForEach(Array(viewModel.filteredFiles.enumerated()), id: \.element.id) { index, file in
+                    ExpandableRow {
+                        fileRowHeader(file: file)
+                    } detail: {
+                        fileRowDetail(file: file)
+                    }
+                    .opacity(file.fileStatus == .skipped ? 0.5 : 1)
+
+                    if index < viewModel.filteredFiles.count - 1 {
+                        Divider()
+                            .padding(.horizontal, 16)
+                    }
                 }
-        }
-        .listStyle(.inset(alternatesRowBackgrounds: true))
-    }
-}
-
-// MARK: - Summary Pill
-
-struct SummaryPill: View {
-    let label: String
-    let value: String
-    let color: Color
-
-    var body: some View {
-        VStack(spacing: 2) {
-            Text(value)
-                .font(.headline)
-                .fontDesign(.rounded)
-                .foregroundStyle(color)
-            Text(label)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+            }
+            .cjCard()
+            .padding(.horizontal, 24)
+            .padding(.bottom, 24)
         }
     }
-}
 
-// MARK: - File Review Row
-
-struct FileReviewRow: View {
-    let file: FileEntry
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: file.fileStatus.systemImage)
-                .foregroundStyle(statusColor)
+    @ViewBuilder
+    private func fileRowHeader(file: FileEntry) -> some View {
+        HStack(spacing: 10) {
+            statusIcon(for: file)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(file.fileName)
+                    .font(.cjBody)
                     .fontWeight(.medium)
+                    .foregroundStyle(Color.cjTextPrimary)
                     .lineLimit(1)
 
-                Text(file.relativePath)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Text(actionSummary(for: file))
+                    .font(.system(size: 11))
+                    .foregroundStyle(file.warnings.isEmpty ? Color.cjTextSecondary : Color.cjWarning)
                     .lineLimit(1)
-                    .truncationMode(.middle)
             }
 
             Spacer()
 
-            // Stream summary
-            if let analysis = file.analysisResult {
-                HStack(spacing: 8) {
-                    if analysis.removedStreamCount > 0 {
-                        Label("\(analysis.removedStreamCount) remove", systemImage: "minus.circle")
-                            .font(.caption)
-                            .foregroundStyle(.red)
-                    }
-
-                    if let savings = analysis.estimatedSavingsBytes, savings > 0 {
-                        Text("-\(savings.formattedFileSize)")
-                            .font(.caption)
-                            .foregroundStyle(.green)
-                            .fontWeight(.medium)
-                    }
-                }
+            if let savings = file.analysisResult?.estimatedSavingsBytes, savings > 0 {
+                Text("-\(savings.formattedFileSize)")
+                    .font(.cjSecondary)
+                    .fontWeight(.medium)
+                    .foregroundStyle(Color.cjSuccess)
+            } else {
+                Text("—")
+                    .font(.cjSecondary)
+                    .foregroundStyle(Color.cjTextSecondary)
             }
 
-            // Size
             Text(file.originalSize.formattedFileSize)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .frame(width: 80, alignment: .trailing)
+                .font(.cjSecondary)
+                .foregroundStyle(Color.cjTextSecondary)
+                .frame(width: 70, alignment: .trailing)
         }
-        .padding(.vertical, 2)
     }
 
-    private var statusColor: Color {
+    @ViewBuilder
+    private func fileRowDetail(file: FileEntry) -> some View {
+        if let analysis = file.analysisResult {
+            HStack(alignment: .top, spacing: 16) {
+                // Removing column
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Removing")
+                        .cjSectionLabel()
+
+                    ForEach(analysis.actions.filter { if case .removeStream = $0 { return true }; return false }) { action in
+                        HStack(spacing: 6) {
+                            Text("✕")
+                                .foregroundStyle(Color.cjError)
+                            Text(action.displayDescription)
+                                .font(.cjSecondary)
+                                .foregroundStyle(Color.cjError)
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                // Keeping column
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Keeping")
+                        .cjSectionLabel()
+
+                    ForEach(analysis.actions.filter { if case .keepStream = $0 { return true }; return false }) { action in
+                        HStack(spacing: 6) {
+                            Text("✓")
+                                .foregroundStyle(Color.cjSuccess)
+                            Text(action.displayDescription)
+                                .font(.cjSecondary)
+                                .foregroundStyle(Color.cjSuccess)
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    // MARK: - Helpers
+
+    @ViewBuilder
+    private func statusIcon(for file: FileEntry) -> some View {
         switch file.fileStatus {
-        case .analyzed: return .blue
-        case .skipped: return .secondary
-        case .failed: return .red
-        case .completed: return .green
-        default: return .secondary
+        case .analyzed:
+            if !file.warnings.isEmpty {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(Color.cjWarning)
+            } else {
+                StatusDot(color: .cjPrimary)
+            }
+        case .skipped:
+            StatusDot(color: .cjTextSecondary)
+        case .failed:
+            StatusDot(color: .cjError)
+        default:
+            StatusDot(color: .cjTextSecondary)
         }
     }
-}
 
-// MARK: - File Detail Sheet
-
-struct FileDetailSheet: View {
-    let file: FileEntry
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Header (pinned, not scrollable)
-            HStack {
-                Text(file.fileName)
-                    .font(.title3)
-                    .fontWeight(.bold)
-                Spacer()
-                Button("Done") { dismiss() }
-            }
-            .padding()
-
-            Divider()
-
-            // Scrollable content
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    // File info
-                    GroupBox("File Info") {
-                        VStack(alignment: .leading, spacing: 6) {
-                            InfoRow(label: "Path", value: file.fullPath)
-                            InfoRow(label: "Size", value: file.originalSize.formattedFileSize)
-                            InfoRow(label: "Container", value: file.fileExtension.uppercased())
-                            InfoRow(label: "Status", value: file.fileStatus.displayName)
-                        }
-                        .padding(4)
-                    }
-
-            // Streams
-            if let info = file.mediaInfo {
-                GroupBox("Streams") {
-                    VStack(alignment: .leading, spacing: 6) {
-                        ForEach(info.videoStreams) { stream in
-                            StreamRow(
-                                icon: "video",
-                                label: "Video",
-                                detail: "\(stream.codecDisplay) \(stream.resolution)"
-                            )
-                        }
-                        ForEach(info.audioStreams) { stream in
-                            StreamRow(
-                                icon: "speaker.wave.2",
-                                label: "Audio",
-                                detail: "\(stream.codec.uppercased()) \(stream.channelDescription) [\(stream.language ?? "?")]"
-                            )
-                        }
-                        ForEach(info.subtitleStreams) { stream in
-                            StreamRow(
-                                icon: "captions.bubble",
-                                label: "Subtitle",
-                                detail: "\(stream.codec) [\(stream.language ?? "?")]\(stream.isForced ? " FORCED" : "")"
-                            )
-                        }
-                    }
-                    .padding(4)
-                }
-            }
-
-            // Planned actions
-            if let analysis = file.analysisResult {
-                GroupBox("Planned Actions") {
-                    VStack(alignment: .leading, spacing: 4) {
-                        ForEach(analysis.actions) { action in
-                            HStack(spacing: 6) {
-                                Image(systemName: action.isDestructive ? "minus.circle.fill" : "checkmark.circle.fill")
-                                    .foregroundStyle(action.isDestructive ? .red : .green)
-                                    .font(.caption)
-                                Text(action.displayDescription)
-                                    .font(.caption)
-                            }
-                        }
-                    }
-                    .padding(4)
-                }
-
-                // Warnings
-                if !analysis.warnings.isEmpty {
-                    GroupBox("Warnings") {
-                        VStack(alignment: .leading, spacing: 4) {
-                            ForEach(analysis.warnings, id: \.self) { warning in
-                                Label(warning, systemImage: "exclamationmark.triangle")
-                                    .font(.caption)
-                                    .foregroundStyle(.orange)
-                            }
-                        }
-                        .padding(4)
-                    }
-                }
-            }
-
-                    // Error
-                    if let error = file.errorMessage {
-                        GroupBox("Error") {
-                            Text(error)
-                                .font(.caption)
-                                .foregroundStyle(.red)
-                                .padding(4)
-                        }
-                    }
-                }
-                .padding()
-            }
+    private func actionSummary(for file: FileEntry) -> String {
+        if !file.warnings.isEmpty {
+            return file.warnings.first ?? "Warning"
         }
-        .frame(minWidth: 500, minHeight: 400)
-    }
-}
-
-struct InfoRow: View {
-    let label: String
-    let value: String
-
-    var body: some View {
-        HStack {
-            Text(label)
-                .foregroundStyle(.secondary)
-                .frame(width: 80, alignment: .trailing)
-            Text(value)
-                .lineLimit(1)
-                .truncationMode(.middle)
+        guard let analysis = file.analysisResult else {
+            return file.fileStatus == .skipped ? "English only — nothing to remove" : "Pending analysis"
         }
-        .font(.caption)
-    }
-}
-
-struct StreamRow: View {
-    let icon: String
-    let label: String
-    let detail: String
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: icon)
-                .frame(width: 20)
-            Text(label)
-                .fontWeight(.medium)
-            Text(detail)
-                .foregroundStyle(.secondary)
-        }
-        .font(.caption)
+        let removeCount = analysis.removedStreamCount
+        if removeCount == 0 { return "Nothing to remove" }
+        return "Remove \(removeCount) track\(removeCount == 1 ? "" : "s")"
     }
 }
